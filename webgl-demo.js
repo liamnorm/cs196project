@@ -36,15 +36,19 @@ function main() {
   #version 300 es
   precision highp float;
 
+  uniform int frame;
+  uniform float sinframe;
   uniform vec2 canvasSize;
   out vec4 fragColor;
 
   void main() {
     vec2 coord = gl_FragCoord.xy/canvasSize.xy;
-    fragColor = vec4(coord.x, coord.y, 1.-coord.x, 1);
+    fragColor = vec4(coord.x, coord.y, (sinframe / 2.) + 0.5, 1);
   }
   `
   ;
+
+  let mycode = " color ( X ) ( Y ) ((sine (Frame / 50)) + 0.5)  (1) ";
 
   function createShader(shaderType, sourceCode) {
     const shader = gl.createShader(shaderType);
@@ -82,5 +86,21 @@ function main() {
   const canvasSizeUniform = gl.getUniformLocation(program, 'canvasSize');
   gl.uniform2f(canvasSizeUniform, canvas.width, canvas.height);
 
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertices.length);
+  let frame = 0;
+
+  const everyFrame = function() {
+    frame += 1;
+
+    const frameUniform = gl.getUniformLocation(program, 'frame');
+    gl.uniform1i(frameUniform, frame);
+  
+    const sinFrameUniform = gl.getUniformLocation(program, 'sinframe');
+    gl.uniform1f(sinFrameUniform, Math.sin(frame/50));
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertices.length);
+
+  }
+
+  var t = setInterval(everyFrame, 30);
+
 }

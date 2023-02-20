@@ -1,1 +1,13 @@
 html, body {padding: 0; margin: 0; overflow: hidden}
+
+.childl {
+    display: inline-block;
+    vertical-align: top;
+    margin: left;
+  }
+
+.childr {
+    display: inline-block;
+    vertical-align: top;
+    margin: right;
+}
