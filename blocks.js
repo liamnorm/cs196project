@@ -10,6 +10,7 @@ const colors = ['#DA0000', '#CB5E00', '#998300', '#008430', '#006DCB', '#84004F'
 const highlight_colors = ["#A2003C", "#A02E00", "#576400", "#006273", "#1637A8", "#250033", "#860099"];
 
 const OPERATION_COLOR = 3;
+const LOGIC_COLOR = 1;
 const FLOW_COLOR = 2;
 const BLOCK_HEIGHT = 30;
 const ROUNDEDNESS = 15;
@@ -193,6 +194,7 @@ class Block {
         this.groupobject = null;
         this.children = null;
         this.block_stack = 0;
+        this.library_block = false;
     }
     
     skeleton = [0]
@@ -319,7 +321,7 @@ class AddBlock extends ArgBlock {
     color = OPERATION_COLOR
     skeleton = [1, 0, 1];
     text = [" ", "+", " "];
-    shadercode_template = ["(", " + ", ")"];
+    shadercode_template = ["_add(", ",", ")"];
 
     eval () {
         this.prepArgs();
@@ -332,7 +334,7 @@ class SubtractBlock extends ArgBlock {
     color = OPERATION_COLOR
     skeleton = [1, 0, 1];
     text = [" ", "-", " "];
-    shadercode_template = ["(", " - ", ")"];
+    shadercode_template = ["_subtract(", ", ", ")"];
 
     eval () {
         this.prepArgs();
@@ -345,7 +347,7 @@ class MultiplyBlock extends ArgBlock {
     color = OPERATION_COLOR
     skeleton = [1, 0, 1];
     text = [" ", "*", " "];
-    shadercode_template = ["(", " * ", ")"];
+    shadercode_template = ["_multiply(", ", ", ")"];
 
     eval () {
         this.prepArgs();
@@ -356,13 +358,26 @@ class DivideBlock extends ArgBlock {
     name = "divide";
     color = OPERATION_COLOR
     skeleton = [1, 0, 1];
-    text = ["1", "/", "1"];
+    text = [" ", "/", " "];
 
-    shadercode_template = ["(float(", ") / float(", "))"];
+    shadercode_template = ["_divide(", ", ", ")"];
 
     eval () {
         this.prepArgs();
         return parseFloat(this.args[0]) / parseFloat(this.args[1]);
+    }
+}
+class ModBlock extends ArgBlock {
+    name = "mod";
+    color = OPERATION_COLOR
+    skeleton = [1, 0, 1];
+    text = [" ", "%", " "];
+
+    shadercode_template = ["_modulus(", ", ", ")"];
+
+    eval () {
+        this.prepArgs();
+        return parseFloat(this.args[0]) % parseFloat(this.args[1]);
     }
 }
 class SineBlock extends ArgBlock {
@@ -370,7 +385,7 @@ class SineBlock extends ArgBlock {
     color = OPERATION_COLOR
     skeleton = [0, 1];
     text = ["sine", "90"];
-    shadercode_template = ["sin", ""];
+    shadercode_template = ["_sin(", ")"];
 
     eval () {
         this.prepArgs();
@@ -382,7 +397,7 @@ class CosineBlock extends ArgBlock {
     color = OPERATION_COLOR
     skeleton = [0, 1];
     text = ["cosine", "90"];
-    shadercode_template = ["cosine", ""];
+    shadercode_template = ["_cos(", ")"];
 
     eval () {
         this.prepArgs();
@@ -394,7 +409,7 @@ class TangentBlock extends ArgBlock {
     color = OPERATION_COLOR
     skeleton = [0, 1];
     text = ["tangent", "90"];
-    shadercode_template = ["tangent", ""];
+    shadercode_template = ["_tan(", ")"];
 
     eval () {
         this.prepArgs();
@@ -403,7 +418,7 @@ class TangentBlock extends ArgBlock {
 }
 class AndBlock extends BoolArgBlock {
     name = "and";
-    color = OPERATION_COLOR
+    color = LOGIC_COLOR
     skeleton = [1, 0, 1];
     text = ["false", "and", "false"];
     shadercode_template = ["(", " && ", ")"];
@@ -415,7 +430,7 @@ class AndBlock extends BoolArgBlock {
 }
 class OrBlock extends BoolArgBlock {
     name = "or";
-    color = OPERATION_COLOR
+    color = LOGIC_COLOR
     skeleton = [1, 0, 1];
     text = ["false", "or", "false"];
     shadercode_template = ["(", " || ", ")"];
@@ -427,7 +442,7 @@ class OrBlock extends BoolArgBlock {
 }
 class NotBlock extends BoolArgBlock {
     name = "not";
-    color = OPERATION_COLOR
+    color = LOGIC_COLOR
     skeleton = [0, 1];
     text = ["not", "false"];
     shadercode_template = ["(!", ")"];
@@ -507,26 +522,40 @@ var stacks = [
     ]
 ]
 
-const BLOCK_LIBRARY = ["print", "color", "add", "subtract", "multiply", "divide", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer"];
+const BLOCK_LIBRARY = ["print", "color", "add", "subtract", "multiply", "divide", "mod", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer"];
 
-let i = 20;
+
+let i = 0;
+let stacklength = 0;
+for (let stack of stacks) {
+    for (let _ of stack) {
+        stacklength += 1;
+    }
+}
+
 for (let blockname of BLOCK_LIBRARY) {
-    stacks.push([[i, blockname, [], []]]);
+    stacks.push([[stacklength + i, blockname, [-1, -1, -1, -1, -1], null, [50, i * 36 + 50]]]);
     i += 1;
 }
+
 
 let y = 0;
 for (let stack of stacks) {
     for (let stackitem of stack) {
         let blockname = stackitem[1];
         let textArgs = stackitem[3];
-        spawnBlock(blockname, textArgs, 50 + .2 * y, y);
+        let spawnx = 100;
+        let spawny = y;
+        if (stackitem[4] != null) {
+            spawnx = stackitem[4][0];
+            spawny = stackitem[4][1];
+        }
+        spawnBlock(blockname, textArgs, spawnx, spawny);
         y += 16;
     }
 }
 
-function spawnBlock (blockname, textArgs, x, y) {
-    let b;
+function blockObjectFromName(blockname) {
     switch (blockname) {
         case "print": b = new PrintBlock(); break;
         case "color": b = new ColorBlock(); break;
@@ -544,6 +573,7 @@ function spawnBlock (blockname, textArgs, x, y) {
         case "subtract": b = new SubtractBlock(); break;
         case "multiply": b = new MultiplyBlock(); break;
         case "divide": b = new DivideBlock(); break;
+        case "mod": b = new ModBlock(); break;
         case "sine": b = new SineBlock(); break;
         case "cosine": b = new CosineBlock(); break;
         case "tangent": b = new TangentBlock(); break;
@@ -554,13 +584,28 @@ function spawnBlock (blockname, textArgs, x, y) {
 
         default: b = new Block();
     }
+    return b;
+}
+
+function spawnBlock (blockname, textArgs, x, y) {
+    let b = blockObjectFromName(blockname);
 
     b.id = blocks.length;
     if (textArgs != null) {
         b.textArgs = textArgs;
-    };
+    } else {
+        b.textArgs = [];
+        for (let t = 0; t < b.skeleton.length; t++) {
+            if (b.skeleton[t] == 1) {b.textArgs.push(b.text[t]);}
+        }
+    }
     b.x = x;
     b.y = y;
+
+    if (b.id >= stacklength) {
+        b.library_block = true;
+    }
+
     blocks.push(b);
 }
 
@@ -617,22 +662,24 @@ function findHoveredBlock () {
                     argbox_x = 0;
                     for (let a = 0; a < h_block_obj.argboxobjects.length; a++) {
                         let argx = h_block_obj.argboxobjects[a].x();
-                        //console.log(argx);
                         if (argx < distX) {
                             textbox = a;
                         }
                     }
 
                     let skeleton = h_block_obj.skeleton;
+                    let prosp_hovered_arg = -1
                     if (skeleton[textbox] == 1) {
-                        hovered_arg = 0;
+                        prosp_hovered_arg = 0;
                         for (let i = 0; i < textbox; i++) {
                             if (skeleton[i] == 1) {
-                                hovered_arg += 1;
+                                prosp_hovered_arg += 1;
                             }
                         }
-                        hovered_block = prosp_hovered_block;
-                        console.log("block", hovered_block, "arg", hovered_arg);
+                        if (stackitem[2][prosp_hovered_arg] == -1) {
+                            hovered_arg = prosp_hovered_arg;
+                            hovered_block = prosp_hovered_block;
+                        }
                     } else {
                         //hovered_arg = -1;
                     }
@@ -788,42 +835,22 @@ for (var s = 0; s < stacks.length; s++) {
 
         blockgroup.on('mouseover', function () {
             document.body.style.cursor = 'pointer';
-            // if (!blocks[this.block_id].dragged) {
-            //     hovered_block = this.block_id;
-            //     console.log("newhover" + this.block_id);
-            // }
-            //console.log(hovered_block);
-            //console.log("hover");
-            //this.children[0].fill('white');
         });
 
-        // for (let i = 0; i < block.argboxobjects.length; i++) {
-        //     block.argboxobjects[i].on('mouseover', function () {
-        //         // if (this.blockobject.skeleton[i] == 0) {
-        //             console.log(i);
-        //             console.log("argbox");
-        //             hovered_arg = i;
-        //         // }
-        //     });
-        // }
+
 
         blockgroup.on('mouseout', function () {
-            //hovered_block = this.block_id;
             document.body.style.cursor = 'default';
-            //this.children[0].fill(colors[blocks[this.block_id].color]);
         });
 
         blockgroup.block_stack = s;
         let block_id = stacks[s][b][0];
         blockgroup.block_id = block_id;
-        //blocks[block_id].groupobject = blockgroup;
 
         blockgroup.on('dragmove', function () {
 
             blocks[this.block_id].dragged = true;
             dragged_stack = this.block_stack;
-
-            //updateNeighborBlockPositions();
 
             this.offsetX(0);
             this.offsetY(0);
@@ -849,6 +876,21 @@ for (var s = 0; s < stacks.length; s++) {
 
         blockgroup.on('dragend', function () {
             // iterate to find location of block in stack?
+
+            if (blocks[this.block_id].library_block) {
+                let lib_block = blocks[this.block_id];
+                lib_block.library_block = false;
+                // create a new block
+
+                // VERY IMPORTANT TO WORK ON!!!
+                stacklength += 1
+                spawnBlock(lib_block.name, [], 0, 0);
+                stacks.push([[stacklength, lib_block.name, [], [], [0, 0]]])
+                var blockgroup = new Konva.Group({draggable: true});
+                block.groupobject = blockgroup;
+                layer.add(blockgroup);
+            }
+
             blocks[this.block_id].dragged = false;
 
             var insert_stack = -1;
@@ -861,25 +903,20 @@ for (var s = 0; s < stacks.length; s++) {
                     }
                 }
             }
-            if (insert_block != -1) {
-                console.log("got here");
-                console.log(hovered_block);
-                console.log(insert_stack);
-                console.log(insert_block);
+            let block_inserted = stacks[dragged_stack][0][0];
+            if (blocks[block_inserted].blocktype == 0) {return}
 
-                // for zeroth arg
-                console.log(stacks[insert_stack][insert_block][2]);
-                stacks[insert_stack][insert_block][2][0] = stacks[dragged_stack][0][0];
-                let first_part = stacks[insert_stack].slice(insert_block, 1);
+            if (insert_block != -1) {
+
+                // change the child parameter in the stack
+                stacks[insert_stack][insert_block][2][hovered_arg] = stacks[dragged_stack][0][0];
+
+                let first_part = stacks[insert_stack].slice(0, insert_block+1);
                 let middle_part = stacks[dragged_stack];
                 let last_part = stacks[insert_stack].slice(insert_block + 1);
-                console.log(first_part);
-                console.log(middle_part);
-                console.log(last_part);
                 new_stack = first_part.concat(middle_part).concat(last_part);
                 stacks[insert_stack] = new_stack;
                 stacks.splice(dragged_stack,1);
-                console.log(stacks);
                 updateBlocks();
             }
 
@@ -1059,6 +1096,38 @@ uniform int frame;
 uniform float sinframe;
 uniform vec2 canvasSize;
 out vec4 fragColor;
+
+int _add(int x, int y) {return x + y;}
+float _add(float x, float y) {return x + y;}
+float _add(int x, float y) {return float(x) + y;}
+float _add(float x, int y) {return x + float(y);}
+
+int _subtract(int x, int y) {return x - y;}
+float _subtract(float x, float y) {return x - y;}
+float _subtract(int x, float y) {return float(x) - y;}
+float _subtract(float x, int y) {return x - float(y);}
+
+int _multiply(int x, int y) {return x + y;}
+float _multiply(float x, float y) {return x + y;}
+float _multiply(int x, float y) {return float(x) + y;}
+float _multiply(float x, int y) {return x + float(y);}
+
+float _divide(int x, int y) {return float(x) / float(y);}
+float _divide(float x, float y) {return x / y;}
+float _divide(int x, float y) {return float(x) / y;}
+float _divide(float x, int y) {return x / float(y);}
+
+int _mod(int x, int y) {return x % y;}
+float _mod(float x, float y) {return float( int(x * 1000.) % int(y * 1000.)) / 1000.;}
+
+float _sin(int x) {return sin(float(x));}
+float _sin(float x) {return sin(x);}
+
+float _cos(int x) {return cos(float(x));}
+float _cos(float x) {return cos(x);}
+
+float _tan(int x) {return tan(float(x));}
+float _tan(float x) {return tan(x);}
 
 void main() {
 vec2 coord = gl_FragCoord.xy/canvasSize.xy;
