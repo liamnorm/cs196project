@@ -1,3 +1,16 @@
+const COLORS = ['#DA0000', '#CB5E00', '#998300', '#008430', '#006DCB', '#84004F', '#CB008B'];
+const HIGHLIGHT_COLORS = ["#A2003C", "#A02E00", "#576400", "#006273", "#1637A8", "#250033", "#860099"];
+
+const OPERATION_COLOR = 3;
+const LOGIC_COLOR = 1;
+const FLOW_COLOR = 2;
+const BLOCK_HEIGHT = 30;
+const ROUNDEDNESS = 15;
+const SCALE = .75;
+
+const MARGIN_X = 8;
+const MARGIN_Y = 4;
+const STROKE_WEIGHT = 2;
 
 // var c = document.getElementById("canvas");
 // var ctx = c.getContext("2d");
@@ -6,14 +19,6 @@
 
 // let colors = ["#b40022", "#c9921b", "#eba800", "#facd02",  "#cbe000", "#028b53",  "#0fb5c5", "#9dc9d4",  "#cbe8f9", "#d6cade", "#ffd3c7"];
 
-const colors = ['#DA0000', '#CB5E00', '#998300', '#008430', '#006DCB', '#84004F', '#CB008B'];
-const highlight_colors = ["#A2003C", "#A02E00", "#576400", "#006273", "#1637A8", "#250033", "#860099"];
-
-const OPERATION_COLOR = 3;
-const LOGIC_COLOR = 1;
-const FLOW_COLOR = 2;
-const BLOCK_HEIGHT = 30;
-const ROUNDEDNESS = 15;
 
 let hovered_block = -1;
 let hovered_arg = -1;
@@ -22,8 +27,6 @@ let dragged_stack = -1;
 
 let stack_being_run = -1;
 
-const SCALE = .75;
-
 const DEFAULT_SHADER_CODE = `fragColor = vec4(0.1, 0.1, 0.4, 1.0);`;
 
 let shader_code = DEFAULT_SHADER_CODE;
@@ -31,13 +34,56 @@ let shader_code = DEFAULT_SHADER_CODE;
 let mouseX = 0;
 let mouseY = 0;
 
+var blocks = []
+
+var stacks = [
+    // [[0, "print", [1], ["Hello"], [10, 10]],
+    // [1, "add", [2, 3], ["", ""]],
+    // [2, "multiply", [-1, -1], [50, 40]],
+    // [3, "subtract", [-1, -1], [30, 20]],
+    // ],
+
+    // [[4, "print", [-1], ["Hello!"], [100, 50]],
+    // [5, "print", [-1], ["How are you?"]],
+    // [6, "print", [-1], ["I am well"]]
+    // ],
+
+    // [[7, "red", [], [], [200, 40]],
+    // [8, "orange", [], []],
+    // [9, "yellow", [], []],
+    // [10, "green", [], []],
+    // [11, "blue", [-1, -1, -1], ["is", "best", "ever"]],
+    // [12, "purple", [], []],
+    // [13, "pink", [], []]
+    // ],
+
+    // [[14, "color", [15, 16, 17, -1], ["0", "0", "0", "1"], [50, 300]],
+    // [15, "x", [], []],
+    // [16, "y", [], []],
+    // [17, "sine", [18], [90]],
+    // [18, "divide", [19, -1], ["0", "10"]],
+    // [19, "timer", [], []]
+    // ]
+
+    [[0, "color", [1, 2, 3, -1], ["0", "0", "0", "1"], [50, 300]],
+    [1, "x", [], []],
+    [2, "y", [], []],
+    [3, "sine", [4], [90]],
+    [4, "divide", [5, -1], ["0", "10"]],
+    [5, "timer", [], []]
+    ]
+]
+
+const BLOCK_LIBRARY = ["print", "color", "add", "subtract", "multiply", "divide", "mod", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
+
+
 class Block {
 
     updateSize () {
 
         let width = 0;
         let height = BLOCK_HEIGHT * SCALE;
-        height += marginy * 2 * SCALE;
+        height += MARGIN_Y * 2 * SCALE;
 
         let arg_num = 0;
         for (let textpart = 0; textpart < this.skeleton.length; textpart++) {
@@ -52,7 +98,7 @@ class Block {
         if (this.block_stack == stack_being_run) {
             this.rectobject.stroke('yellow');
         } else {
-            this.rectobject.stroke(highlight_colors[this.color]);
+            this.rectobject.stroke(HIGHLIGHT_COLORS[this.color]);
         }
 
         // hover highlight
@@ -62,10 +108,10 @@ class Block {
                 if (argnum == hovered_arg) {
                     this.argboxobjects[i].stroke('cyan');
                 } else {
-                    this.argboxobjects[i].stroke(highlight_colors[this.color]);
+                    this.argboxobjects[i].stroke(HIGHLIGHT_COLORS[this.color]);
                 }
             } else {
-                this.argboxobjects[i].stroke(highlight_colors[this.color]);
+                this.argboxobjects[i].stroke(HIGHLIGHT_COLORS[this.color]);
             }
             if (this.skeleton[i] == 1) {argnum += 1;}
         }
@@ -74,37 +120,39 @@ class Block {
         let child_num = 0;
         for (let c = 0; c < this.skeleton.length; c++) {
             if (this.skeleton[c] == 1) {
+                this.textobjects[c].fontStyle('normal');
                 let child = this.children[child_num];
                 if (child != null && child != -1) {
                     blocks[child].updateSize();
-                    this.textwidths[c] = blocks[child].width - 2 * marginx * SCALE;
+                    this.textwidths[c] = blocks[child].width - 2 * MARGIN_X * SCALE;
                     width += blocks[child].width;
                     if (blocks[child].height > max_child_height) {
                         max_child_height = blocks[child].height;
-                        height = max_child_height + 2 * marginy * SCALE;
+                        height = max_child_height + 2 * MARGIN_Y * SCALE;
                     }
                 } else {
                     let default_text_length = this.textobjects[c].width();
                     this.textwidths[c] = default_text_length;
                     width += this.textwidths[c];
-                    width += 2 * marginx * SCALE;
+                    width += 2 * MARGIN_X * SCALE;
                 }
                 child_num += 1;
             } else {
+                this.textobjects[c].fontStyle('bold');
                 width += this.textwidths[c];
-                width += 2 * marginx * SCALE;
+                width += 2 * MARGIN_X * SCALE;
             }
         }
 
-        width += 2 * marginx * SCALE;
+        width += 2 * MARGIN_X * SCALE;
         this.width = width;
         this.height = height;
         this.rectobject.width(this.width);
         this.rectobject.height(this.height);
 
         for (let a = 0; a < this.argboxobjects.length; a++) {
-            argbox = this.argboxobjects[a];
-            argbox.width(this.textwidths[a] + 2 * marginx * SCALE);
+            let argbox = this.argboxobjects[a];
+            argbox.width(this.textwidths[a] + 2 * MARGIN_X * SCALE);
             argbox.height(BLOCK_HEIGHT * SCALE);
         }
     }
@@ -118,7 +166,7 @@ class Block {
             }
         }
 
-        let childx = marginx;
+        let childx = MARGIN_X;
         let child_num = 0;
         for (let c = 0; c < this.skeleton.length; c++) {
             if (this.skeleton[c] == 1) {
@@ -129,23 +177,23 @@ class Block {
                 }
                 child_num += 1;
             }
-            childx += this.textwidths[c] + 2 * marginx * SCALE;
+            childx += this.textwidths[c] + 2 * MARGIN_X * SCALE;
         }
 
-        let argx = marginx;
+        let argx = MARGIN_X;
         for (let a = 0; a < this.argboxobjects.length; a++) {
             let argbox = this.argboxobjects[a];
             argbox.x(argx);
             argbox.y((this.height - BLOCK_HEIGHT * SCALE) / 2);
-            argx += this.textwidths[a] + 2 * marginx * SCALE;
+            argx += this.textwidths[a] + 2 * MARGIN_X * SCALE;
         }
 
-        let textx = 2 * marginx * SCALE;
+        let textx = 2 * MARGIN_X * SCALE;
         for (let a = 0; a < this.textobjects.length; a++) {
             let text = this.textobjects[a];
             text.x(textx);
             text.y(this.height / 2 - 10 * SCALE);
-            textx += this.textwidths[a] + 2 * marginx * SCALE;
+            textx += this.textwidths[a] + 2 * MARGIN_X * SCALE;
         }
 
         this.groupobject.x(this.x);
@@ -168,7 +216,7 @@ class Block {
         }
     }
 
-    name = "block";
+    block_name = "block";
 
     color = 1;
 
@@ -192,9 +240,10 @@ class Block {
         this.next = null;
         this.dragged = false;
         this.groupobject = null;
-        this.children = null;
         this.block_stack = 0;
         this.library_block = false;
+        this.prev_x = this.x;
+        this.prev_y = this.y;
     }
     
     skeleton = [0]
@@ -218,7 +267,7 @@ class BoolArgBlock extends ArgBlock {
 class ClampBlock extends StackBlock {}
 class DoubleClampBlock extends StackBlock {}
 class PrintBlock extends StackBlock {
-    name = "print";
+    block_name = "print";
     color = 6;
     skeleton = [0, 1];
     text = ["print", "Hello!"];
@@ -231,7 +280,7 @@ class PrintBlock extends StackBlock {
     }
 }
 class ColorBlock extends StackBlock {
-    name = "color";
+    block_name = "color";
     color = 5;
     skeleton = [0,1,0,1,0,1,0,1];
     text = ["red", "0", "green", "0", "blue", "0", "transparent", "1"];
@@ -239,21 +288,21 @@ class ColorBlock extends StackBlock {
 }
 
 class XBlock extends ArgBlock {
-    name = "x";
+    block_name = "x";
     color = 4;
     skeleton = [0];
     text = ["X"];
     shadercode_template = ["coord.x"];
 }
 class YBlock extends ArgBlock {
-    name = "y";
+    block_name = "y";
     color = 4;
     skeleton = [0];
     text = ["Y"];
     shadercode_template = ["coord.y"];
 }
 class TimerBlock extends ArgBlock {
-    name = "timer";
+    block_name = "timer";
     color = 4;
     skeleton = [0];
     text = ["timer"];
@@ -261,7 +310,7 @@ class TimerBlock extends ArgBlock {
 }
 
 class RedBlock extends StackBlock {
-    name = "red";
+    block_name = "red";
     color = 0;
     skeleton = [0];
     text = ["red"];
@@ -269,7 +318,7 @@ class RedBlock extends StackBlock {
 }
 
 class OrangeBlock extends StackBlock {
-    name = "orange";
+    block_name = "orange";
     color = 1;
     skeleton = [0];
     text = ["orange"];
@@ -277,7 +326,7 @@ class OrangeBlock extends StackBlock {
 }
 
 class YellowBlock extends StackBlock {
-    name = "yellow";
+    block_name = "yellow";
     color = 2;
     skeleton = [0];
     text = ["yellow"];
@@ -285,7 +334,7 @@ class YellowBlock extends StackBlock {
 }
 
 class GreenBlock extends StackBlock {
-    name = "green";
+    block_name = "green";
     color = 3;
     skeleton = [0];
     text = ["green"];
@@ -293,7 +342,7 @@ class GreenBlock extends StackBlock {
 }
 
 class BlueBlock extends StackBlock {
-    name = "blue";
+    block_name = "blue";
     color = 4;
     skeleton = [0, 1, 0, 1, 0, 1];
     text = ["blue", "is", "the", "best", "color", "ever"];
@@ -301,7 +350,7 @@ class BlueBlock extends StackBlock {
 }
 
 class PurpleBlock extends StackBlock {
-    name = "purple";
+    block_name = "purple";
     color = 5;
     skeleton = [0];
     text = ["purple"];
@@ -309,7 +358,7 @@ class PurpleBlock extends StackBlock {
 }
 
 class PinkBlock extends StackBlock {
-    name = "pink";
+    block_name = "pink";
     color = 6;
     skeleton = [0];
     text = ["pink"];
@@ -317,7 +366,7 @@ class PinkBlock extends StackBlock {
 }
 
 class AddBlock extends ArgBlock {
-    name = "add";
+    block_name = "add";
     color = OPERATION_COLOR
     skeleton = [1, 0, 1];
     text = [" ", "+", " "];
@@ -330,7 +379,7 @@ class AddBlock extends ArgBlock {
 }
 
 class SubtractBlock extends ArgBlock {
-    name = "subtract";
+    block_name = "subtract";
     color = OPERATION_COLOR
     skeleton = [1, 0, 1];
     text = [" ", "-", " "];
@@ -343,7 +392,7 @@ class SubtractBlock extends ArgBlock {
 }
 
 class MultiplyBlock extends ArgBlock {
-    name = "multiply";
+    block_name = "multiply";
     color = OPERATION_COLOR
     skeleton = [1, 0, 1];
     text = [" ", "*", " "];
@@ -355,7 +404,7 @@ class MultiplyBlock extends ArgBlock {
     }
 }
 class DivideBlock extends ArgBlock {
-    name = "divide";
+    block_name = "divide";
     color = OPERATION_COLOR
     skeleton = [1, 0, 1];
     text = [" ", "/", " "];
@@ -368,7 +417,7 @@ class DivideBlock extends ArgBlock {
     }
 }
 class ModBlock extends ArgBlock {
-    name = "mod";
+    block_name = "mod";
     color = OPERATION_COLOR
     skeleton = [1, 0, 1];
     text = [" ", "%", " "];
@@ -381,7 +430,7 @@ class ModBlock extends ArgBlock {
     }
 }
 class SineBlock extends ArgBlock {
-    name = "sine";
+    block_name = "sine";
     color = OPERATION_COLOR
     skeleton = [0, 1];
     text = ["sine", "90"];
@@ -393,7 +442,7 @@ class SineBlock extends ArgBlock {
     }
 }
 class CosineBlock extends ArgBlock {
-    name = "cosine";
+    block_name = "cosine";
     color = OPERATION_COLOR
     skeleton = [0, 1];
     text = ["cosine", "90"];
@@ -405,7 +454,7 @@ class CosineBlock extends ArgBlock {
     }
 }
 class TangentBlock extends ArgBlock {
-    name = "tangent";
+    block_name = "tangent";
     color = OPERATION_COLOR
     skeleton = [0, 1];
     text = ["tangent", "90"];
@@ -417,7 +466,7 @@ class TangentBlock extends ArgBlock {
     }
 }
 class AndBlock extends BoolArgBlock {
-    name = "and";
+    block_name = "and";
     color = LOGIC_COLOR
     skeleton = [1, 0, 1];
     text = ["false", "and", "false"];
@@ -429,7 +478,7 @@ class AndBlock extends BoolArgBlock {
     }
 }
 class OrBlock extends BoolArgBlock {
-    name = "or";
+    block_name = "or";
     color = LOGIC_COLOR
     skeleton = [1, 0, 1];
     text = ["false", "or", "false"];
@@ -441,7 +490,7 @@ class OrBlock extends BoolArgBlock {
     }
 }
 class NotBlock extends BoolArgBlock {
-    name = "not";
+    block_name = "not";
     color = LOGIC_COLOR
     skeleton = [0, 1];
     text = ["not", "false"];
@@ -452,8 +501,32 @@ class NotBlock extends BoolArgBlock {
         return !this.args[0];
     }
 }
+class TrueBlock extends BoolArgBlock {
+    block_name = "true";
+    color = 0
+    skeleton = [0];
+    text = ["true"];
+    shadercode_template = ["(true)"];
+
+    eval () {
+        this.prepArgs();
+        return true;
+    }
+}
+class FalseBlock extends BoolArgBlock {
+    block_name = "false";
+    color = 0
+    skeleton = [0];
+    text = ["false"];
+    shadercode_template = ["(false)"];
+
+    eval () {
+        this.prepArgs();
+        return false;
+    }
+}
 class IfBlock extends ClampBlock {
-    name = "if";
+    block_name = "if";
     color = FLOW_COLOR;
     skeleton = [0, 1, 0, 1];
     text = ["if", "false", "then"];
@@ -477,53 +550,15 @@ var stage = new Konva.Stage({
 
 var layer = new Konva.Layer();
 
-background = new Konva.Rect({
+let background = new Konva.Rect({
     fill: "#222233",
     width: width,
     height: height
 })
 layer.add(background);
 
-var marginx = 8;
-var marginy = 4;
-var strokeweight = 2;
 
-var stackobjects = [];
-
-var blocks = []
-
-var stacks = [
-    [[0, "print", [1], ["Hello"], [10, 10]],
-    [1, "add", [2, 3], ["", ""]],
-    [2, "multiply", [-1, -1], [50, 40]],
-    [3, "subtract", [-1, -1], [30, 20]],
-    ],
-
-    [[4, "print", [-1], ["Hello!"], [100, 50]],
-    [5, "print", [-1], ["How are you?"]],
-    [6, "print", [-1], ["I am well"]]
-    ],
-
-    [[7, "red", [], [], [200, 40]],
-    [8, "orange", [], []],
-    [9, "yellow", [], []],
-    [10, "green", [], []],
-    [11, "blue", [-1, -1, -1], ["is", "best", "ever"]],
-    [12, "purple", [], []],
-    [13, "pink", [], []]
-    ],
-
-    [[14, "color", [15, 16, 17, -1], ["0", "0", "0", "1"], [50, 300]],
-    [15, "x", [], []],
-    [16, "y", [], []],
-    [17, "sine", [18], [90]],
-    [18, "divide", [19, -1], ["0", "10"]],
-    [19, "timer", [], []]
-    ]
-]
-
-const BLOCK_LIBRARY = ["print", "color", "add", "subtract", "multiply", "divide", "mod", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer"];
-
+//get total number of blocks in stack
 
 let i = 0;
 let stacklength = 0;
@@ -533,29 +568,33 @@ for (let stack of stacks) {
     }
 }
 
+// add dummy library blocks
+
 for (let blockname of BLOCK_LIBRARY) {
-    stacks.push([[stacklength + i, blockname, [-1, -1, -1, -1, -1], null, [50, i * 36 + 50]]]);
+    stacks.push([[stacklength + i, blockname, [-1, -1, -1, -1, -1], [], [50, i * 36 + 50]]]);
     i += 1;
 }
 
+// create block objects for each item in the stack
 
-let y = 0;
-for (let stack of stacks) {
-    for (let stackitem of stack) {
-        let blockname = stackitem[1];
-        let textArgs = stackitem[3];
-        let spawnx = 100;
-        let spawny = y;
-        if (stackitem[4] != null) {
-            spawnx = stackitem[4][0];
-            spawny = stackitem[4][1];
-        }
-        spawnBlock(blockname, textArgs, spawnx, spawny);
-        y += 16;
-    }
-}
+// let y = 0;
+// for (let stack of stacks) {
+//     for (let stackitem of stack) {
+//         let blockname = stackitem[1];
+//         let textArgs = stackitem[3];
+//         let spawnx = 100;
+//         let spawny = y;
+//         if (stackitem[4] != null) {
+//             spawnx = stackitem[4][0];
+//             spawny = stackitem[4][1];
+//         }
+//         spawnBlock(blockname, textArgs, spawnx, spawny);
+//         y += 16;
+//     }
+// }
 
 function blockObjectFromName(blockname) {
+    let b;
     switch (blockname) {
         case "print": b = new PrintBlock(); break;
         case "color": b = new ColorBlock(); break;
@@ -580,6 +619,8 @@ function blockObjectFromName(blockname) {
         case "and": b = new AndBlock(); break;
         case "or": b = new OrBlock(); break;
         case "not": b = new NotBlock(); break;
+        case "true": b = new TrueBlock(); break;
+        case "false": b = new FalseBlock(); break;
         case "if": b = new IfBlock(); break;
 
         default: b = new Block();
@@ -587,26 +628,465 @@ function blockObjectFromName(blockname) {
     return b;
 }
 
-function spawnBlock (blockname, textArgs, x, y) {
-    let b = blockObjectFromName(blockname);
+// function spawnBlock (blockname, textArgs, x, y) {
+//     let b = blockObjectFromName(blockname);
 
-    b.id = blocks.length;
-    if (textArgs != null) {
-        b.textArgs = textArgs;
+//     b.id = blocks.length;
+//     if (textArgs != null) {
+//         b.textArgs = textArgs;
+//     } else {
+//         b.textArgs = [];
+//         for (let t = 0; t < b.skeleton.length; t++) {
+//             if (b.skeleton[t] == 1) {b.textArgs.push(b.text[t]);}
+//         }
+//     }
+//     b.x = x;
+//     b.y = y;
+
+//     if (b.id >= stacklength) {
+//         b.library_block = true;
+//     }
+
+//     blocks.push(b);
+// }
+
+function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
+    // don't modify the stacks!
+    let block = blockObjectFromName(blockname);
+    block.id = id;
+    block.x = x;
+    block.y = y;
+    block.library_block = library_block;
+
+    if (textArgs.length != 0) {
+        console.log(textArgs);
+        block.textArgs = [];
+        for (let textArg of textArgs) {
+            block.textArgs.push(textArg.toString())
+        }
     } else {
-        b.textArgs = [];
-        for (let t = 0; t < b.skeleton.length; t++) {
-            if (b.skeleton[t] == 1) {b.textArgs.push(b.text[t]);}
+        block.textArgs = [];
+        for (let s = 0; s < block.skeleton.length; s++) {
+            if (block.skeleton[s] == 1) {
+                block.textArgs.push(block.text[s]);
+            }
         }
     }
-    b.x = x;
-    b.y = y;
+    blocks.push(block);
 
-    if (b.id >= stacklength) {
-        b.library_block = true;
+    let block_stack = -1;
+
+    for (let s = 0; s < stacks.length; s++) {
+        for (let stackitem of stacks[s]) {
+            if (stackitem[0] == id) {block_stack = s;}
+        }
     }
 
-    blocks.push(b);
+    block.block_stack = block_stack;
+
+    // set block's next value?
+
+    let textwidths = [];
+    let textobjects = [];
+    let argboxobjects = [];
+    let a = 0;
+    for (t = 0; t < block.text.length; t++) {
+        let textfill = (block.skeleton[t] == 1) ? 'black' : 'white';
+        let textNode = new Konva.Text({
+            text: block.text[t],
+            fontSize: 20 * SCALE,
+            fontFamily: 'Helvetica',
+            fill: textfill,
+        })
+
+        textNode.block = block;
+        textNode.text_id = t;
+        textNode.arg_num = a;
+
+        if (block.skeleton[t] == 1) {
+            a += 1;
+        textNode.on('click tap', () => {
+            // hide text node and transformer:
+            textNode.hide();
+    
+            // create textarea over canvas with absolute position
+            // first we need to find position for textarea
+            // how to find it?
+    
+            // at first lets find position of text node relative to the stage:
+            var textPosition = textNode.absolutePosition();
+    
+            // so position of textarea will be the sum of positions above:
+            var areaPosition = {
+              x: stage.container().offsetLeft + textPosition.x,
+              y: stage.container().offsetTop + textPosition.y,
+            };
+    
+            // create textarea and style it
+            var textarea = document.createElement('textarea');
+            document.body.appendChild(textarea);
+    
+            // apply many styles to match text on canvas as close as possible
+            // remember that text rendering on canvas and on the textarea can be different
+            // and sometimes it is hard to make it 100% the same. But we will try...
+            textarea.value = textNode.text();
+            textarea.style.position = 'absolute';
+            textarea.style.top = areaPosition.y + 'px';
+            textarea.style.left = areaPosition.x + 'px';
+            textarea.style.width = textNode.width() - textNode.padding() * 2 + 'px';
+            textarea.style.height =
+              textNode.height() - textNode.padding() * 2 + 5 + 'px';
+            textarea.style.fontSize = textNode.fontSize() + 'px';
+            textarea.style.border = 'none';
+            textarea.style.padding = '0px';
+            textarea.style.margin = '0px';
+            textarea.style.overflow = 'hidden';
+            textarea.style.background = 'none';
+            textarea.style.outline = 'none';
+            textarea.style.resize = 'none';
+            textarea.style.lineHeight = textNode.lineHeight();
+            textarea.style.fontFamily = textNode.fontFamily();
+            textarea.style.fontStyle = textNode.fontStyle();
+            textarea.style.transformOrigin = 'left top';
+            textarea.style.textAlign = textNode.align();
+            textarea.style.color = textNode.fill();
+            var transform = '';
+    
+            var px = 0;
+            // also we need to slightly move textarea on firefox
+            // because it jumps a bit
+            var isFirefox =
+              navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+            if (isFirefox) {
+              px += 2 + Math.round(textNode.fontSize() / 20);
+            }
+            transform += 'translateY(-' + px + 'px)';
+    
+            textarea.style.transform = transform;
+    
+            // reset height
+            textarea.style.height = 'auto';
+            // after browsers resized it we can set actual value
+            textarea.style.height = textarea.scrollHeight + 3 + 'px';
+    
+            textarea.focus();
+    
+            function removeTextarea() {
+              textarea.parentNode.removeChild(textarea);
+              window.removeEventListener('click', handleOutsideClick);
+              textNode.show();
+            }
+    
+            function setTextareaWidth(newWidth) {
+              if (!newWidth) {
+                // set width for placeholder
+                newWidth = textNode.placeholder.length * textNode.fontSize();
+              }
+              // some extra fixes on different browsers
+              var isSafari = /^((?!chrome|android).)*safari/i.test(
+                navigator.userAgent
+              );
+              var isFirefox =
+                navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+              if (isSafari || isFirefox) {
+                newWidth = Math.ceil(newWidth);
+              }
+    
+              var isEdge =
+                document.documentMode || /Edge/.test(navigator.userAgent);
+              if (isEdge) {
+                newWidth += 1;
+              }
+              textarea.style.width = newWidth + 'px';
+            }
+    
+            textarea.addEventListener('keydown', function (e) {
+              // hide on enter
+              // but don't hide on shift + enter
+              if (e.keyCode === 13 && !e.shiftKey) {
+                textNode.text(textarea.value);
+                removeTextarea();
+              }
+              // on esc do not set value back to node
+              if (e.keyCode === 27) {
+                removeTextarea();
+              }
+            });
+    
+            textarea.addEventListener('keydown', function (e) {
+                let scale = textNode.getAbsoluteScale().x;
+                setTextareaWidth(textNode.width() * scale);
+                textarea.style.height = 'auto';
+                textarea.style.height =
+                    textarea.scrollHeight + textNode.fontSize() + 'px';
+
+                textNode.text(textarea.value);
+                textNode.block.textArgs[textNode.arg_num] = textarea.value;
+                updateBlocks();
+            });
+    
+            function handleOutsideClick(e) {
+              if (e.target !== textarea) {
+                textNode.text(textarea.value);
+                textNode.block.textArgs[textNode.arg_num] = textarea.value;
+                updateBlocks();
+                removeTextarea();
+              }
+            }
+            setTimeout(() => {
+              window.addEventListener('click', handleOutsideClick);
+            });
+        });
+        }
+
+        textwidths.push(textNode.width());
+        textobjects.push(textNode);
+
+        let argfill = COLORS[block.color];
+        let argweight = 0;
+        let opacity = 0;
+        if (block.skeleton[t] == 1) {
+            argfill = 'white';
+            argweight = STROKE_WEIGHT;
+            opacity = 1;
+        }
+        let argbox = new Konva.Rect({
+            width: block.textwidths[t],
+            height: BLOCK_HEIGHT * SCALE,
+            fill: argfill,
+            stroke: HIGHLIGHT_COLORS[block.color],
+            strokeWidth: argweight,
+            opacity: opacity,
+            cornerRadius: ROUNDEDNESS * SCALE,
+        });
+        argboxobjects.push(argbox);
+
+    }
+
+    block.textwidths = textwidths;
+    block.textobjects = textobjects;
+    block.argboxobjects = argboxobjects;
+
+    let r = ROUNDEDNESS * SCALE;
+    let cornerRadius = (block.blocktype == 0) ? [0,r,r,0] : r;
+    let rect = new Konva.Rect({
+        fill: COLORS[block.color],
+        stroke: HIGHLIGHT_COLORS[block.color],
+        strokeWidth: STROKE_WEIGHT,
+        cornerRadius: cornerRadius,
+    });
+    block.rectobject = rect;
+    // can (and should ) be optimized
+    let blockgroup = new Konva.Group({draggable: true});
+    block.groupobject = blockgroup;
+
+    //block.updateSize();
+    //block.updateLocation();
+
+    blockgroup.add(block.rectobject);
+
+    for (const argbox of block.argboxobjects){
+        argbox.blockobject = block;
+        blockgroup.add(argbox);
+    }
+    for (const text of block.textobjects){
+        text.blockobject = block;
+        blockgroup.add(text);
+    }
+
+    blockgroup.block_stack = block.block_stack;
+    blockgroup.block_id = block.id;
+
+    blockgroup.on('mouseover', function () {
+        document.body.style.cursor = 'pointer';
+    });
+
+    blockgroup.on('mouseout', function () {
+        document.body.style.cursor = 'default';
+    });
+
+    blockgroup.on('dragmove', function () {
+
+        blocks[this.block_id].dragged = true;
+        dragged_stack = this.block_stack;
+
+        this.offsetX(0);
+        this.offsetY(0);
+        blocks[this.block_id].x = this.absolutePosition().x;
+        blocks[this.block_id].y = this.absolutePosition().y;
+
+        var stacklength = stacks[this.block_stack].length;
+        for (var b2 = 0; b2 < stacklength; b2++) {
+            //calculate location of each block
+            var block2 = blocks[stacks[this.block_stack][b2][0]];
+            block2.updateLocation();
+
+            // move stack to front layer!
+            block2.groupobject.zIndex(blocks.length - stacklength + b2 + 1);
+        }
+
+        findHoveredBlock();
+        for (block of blocks) {
+            block.updateSize();
+            //block.groupobject.zIndex(1);
+        }
+    });
+
+    blockgroup.on('dragend', function () {
+        // iterate to find location of block in stack?
+
+        if (blocks[this.block_id].library_block) {
+            let lib_block = blocks[this.block_id];
+            lib_block.library_block = false;
+            stacks.push([[blocks.length, lib_block.blockname, [-1, -1, -1, -1, -1], []]]);
+            fullyCreateBlock(lib_block.block_name, blocks.length, [], lib_block.prev_x, lib_block.prev_y, true);
+            updateBlocks();
+            // create a new block
+
+            // VERY IMPORTANT TO WORK ON!!!
+            // stacklength += 1
+            // spawnBlock(lib_block.name, [], 0, 0);
+            // stacks.push([[stacklength, lib_block.name, [], [], [0, 0]]])
+            // var blockgroup = new Konva.Group({draggable: true});
+            // block.groupobject = blockgroup;
+            // layer.add(blockgroup);
+        }
+
+        blocks[this.block_id].dragged = false;
+
+        var insert_stack = -1;
+        var insert_block = -1;
+        for (let s = 0; s < stacks.length; s++) {
+            for (let b = 0; b < stacks[s].length; b++) {
+                if (stacks[s][b][0] == hovered_block) {
+                    insert_stack = s;
+                    insert_block = b;
+                }
+            }
+        }
+        let block_inserted = stacks[dragged_stack][0][0];
+        if (blocks[block_inserted].blocktype == 0) {return}
+
+        if (insert_block != -1) {
+
+            // change the child parameter in the stack
+            stacks[insert_stack][insert_block][2][hovered_arg] = stacks[dragged_stack][0][0];
+
+            let first_part = stacks[insert_stack].slice(0, insert_block+1);
+            let middle_part = stacks[dragged_stack];
+            let last_part = stacks[insert_stack].slice(insert_block + 1);
+            let new_stack = first_part.concat(middle_part).concat(last_part);
+            stacks[insert_stack] = new_stack;
+            stacks.splice(dragged_stack,1);
+            updateBlocks();
+        }
+    });
+
+    blockgroup.on('dragstart', function () {
+
+        let d_block = blocks[this.block_id];
+        d_block.prev_x = d_block.x;
+        d_block.prev_y = d_block.y;
+        d_block.dragged = true;
+        for (let s = 0; s < stacks.length; s++) {
+            for (let b = 0; b < stacks[s].length; b++) {
+
+                // get the parent and replace it with -1.
+
+                let children = stacks[s][b][2];
+                if (stacks[s][b][2].includes(this.block_id)) {
+                    parent = stacks[s][b][0];
+                    let index = children.indexOf(this.block_id);
+                    children[index] = -1;
+                }
+
+                if (stacks[s][b][0] == this.block_id && b > 0) {
+
+                    // we found the block to remove.
+
+                    // iterate until finding a block that is not a child, to get length of substack.
+
+                    let subchilds = [];
+
+                    subchilds = subchilds.concat(stacks[s][b][2]);
+                    let b2 = b;
+                    b2++;
+                    while (b2 < stacks[s].length && subchilds.includes(stacks[s][b2][0])) {
+                        subchilds = subchilds.concat(stacks[s][b2][2]);
+                        b2++;
+                    }
+
+                    // splice out the removed substack.
+
+                    // replace instances of 
+                    let oldstack = stacks[s].slice(0, b);
+                    let newstack = stacks[s].slice(b, b2);
+                    let endstack = [];
+                    if (stacks[s].length > b2) {
+                        endstack = stacks[s].slice(-(stacks[s].length-b2));
+                    }
+
+                    if (blocks[this.block_id].blocktype == 1) {
+                        oldstack = oldstack.concat(endstack);
+                    } else {
+                        newstack = newstack.concat(endstack);
+                    }
+                    stacks.splice(s, 1);
+                    stacks.push(oldstack);
+                    stacks.push(newstack);
+                    blocks[this.block_id].block_stack = stacks[s].length - 1;
+                    //need to cleanup
+
+                    //initializing new stack
+                    for (let k = 0; k < stacks[stacks.length-1].length; k++) {
+                        let underblock = blocks[stacks[stacks.length-1][k][0]];
+                        let underblockobject = underblock.groupobject;
+                        if (k == 0) {
+                            this.x(underblock.x);
+                            this.y(underblock.y);
+                            this.offsetX(underblock.x);
+                            this.offsetY(underblock.y);
+                        }
+                        underblockobject.block_stack = stacks.length - 1;
+                    }
+
+                    updateBlocks();
+
+                    return;
+                }
+            }
+        }
+    });
+
+    blockgroup.on('click', function () {
+        dragged_stack = -1;
+        findMouseOveredBlock();
+        console.log(hovered_block);
+        console.log(hovered_arg);
+        if (hovered_arg == -1) {
+            if (stack_being_run == this.block_stack) {
+                stack_being_run = -1
+                updateBlocks();
+                makeShader(DEFAULT_SHADER_CODE);
+            } else {
+                stack_being_run = this.block_stack;
+                updateBlocks();
+                updateShaderCode();
+                console.log(shader_code);
+                makeShader(shader_code);
+                for (i = 0; i < stacks[stack_being_run].length; i++) {
+                    let block_to_run = blocks[stacks[stack_being_run][i][0]];
+                    if (block_to_run.blocktype == 0) {
+                        block_to_run.eval();
+                    }
+                }
+            }
+        }
+    });
+
+    layer.add(blockgroup);
+    blockgroup.zIndex(block.id+1);
+
 }
 
 function updateBlocks () {
@@ -635,18 +1115,17 @@ function updateBlocks () {
     }
 }
 
-function findHoveredBlock () {
+function findMouseOveredBlock () {
 
     hovered_block = -1;
     hovered_arg = -1;
 
-    for (stack of stacks) {
-        for (stackitem of stack) {
+    for (let stack of stacks) {
+        for (let stackitem of stack) {
             let block = blocks[stackitem[0]];
             if (!block.dragged) {
-                var dragged_block = blocks[stacks[dragged_stack][0][0]];
-                var dragX = dragged_block.groupobject.x();
-                var dragY = dragged_block.groupobject.y();
+                var dragX = mouseX;
+                var dragY = mouseY;
                 var distX = dragX - block.x;
                 var distY = dragY - block.y;
                 if (distX > 0 && 
@@ -659,7 +1138,6 @@ function findHoveredBlock () {
 
                     let h_block_obj = blocks[prosp_hovered_block];
                     let textbox = 0;
-                    argbox_x = 0;
                     for (let a = 0; a < h_block_obj.argboxobjects.length; a++) {
                         let argx = h_block_obj.argboxobjects[a].x();
                         if (argx < distX) {
@@ -680,10 +1158,64 @@ function findHoveredBlock () {
                             hovered_arg = prosp_hovered_arg;
                             hovered_block = prosp_hovered_block;
                         }
-                    } else {
-                        //hovered_arg = -1;
+                    }
+                }
+            }
+        }
+    }
+}
+
+document.onmousemove = handleMouseMove;
+function handleMouseMove(event) {
+    mouseX = event.pageX;
+    mouseY = event.pageY;
+}
+
+function findHoveredBlock () {
+
+    hovered_block = -1;
+    hovered_arg = -1;
+
+    for (let stack of stacks) {
+        for (let stackitem of stack) {
+            let block = blocks[stackitem[0]];
+            if (!block.dragged) {
+                var dragged_block = blocks[stacks[dragged_stack][0][0]];
+                var dragX = dragged_block.groupobject.x();
+                var dragY = dragged_block.groupobject.y();
+                var distX = dragX - block.x;
+                var distY = dragY - block.y;
+                if (distX > 0 && 
+                    distX < block.width &&
+                    distY > 0 &&
+                    distY < block.height) {
+
+                    let prosp_hovered_block = stackitem[0];
+                    // found the block, now time to find the nearest argument.
+
+                    let h_block_obj = blocks[prosp_hovered_block];
+                    let textbox = 0;
+                    for (let a = 0; a < h_block_obj.argboxobjects.length; a++) {
+                        let argx = h_block_obj.argboxobjects[a].x();
+                        if (argx < distX) {
+                            textbox = a;
+                        }
                     }
 
+                    let skeleton = h_block_obj.skeleton;
+                    let prosp_hovered_arg = -1
+                    if (skeleton[textbox] == 1) {
+                        prosp_hovered_arg = 0;
+                        for (let i = 0; i < textbox; i++) {
+                            if (skeleton[i] == 1) {
+                                prosp_hovered_arg += 1;
+                            }
+                        }
+                        if (stackitem[2][prosp_hovered_arg] == -1) {
+                            hovered_arg = prosp_hovered_arg;
+                            hovered_block = prosp_hovered_block;
+                        }
+                    }
                 }
             }
         }
@@ -723,321 +1255,44 @@ function updateShaderCode () {
     }
 }
 
-for (var s = 0; s < stacks.length; s++) { 
+for (let s = 0; s < stacks.length; s++) { 
+    for (let b = 0; b < stacks[s].length; b++) {
+        let stackitem = stacks[s][b];
+        let x = stackitem[4] == null ? 0 : stackitem[4][0];
+        let y = stackitem[4] == null ? 0 : stackitem[4][1];
+        let library_block = s >= stacks.length - BLOCK_LIBRARY.length;
+        fullyCreateBlock(stackitem[1], stackitem[0], stackitem[3], x, y, library_block);
+    }
+}
 
-    stackheight = 0;
-    blockheights = [];
-
+for (let s = 0; s < stacks.length; s++) { 
 
     // Get 'next' value for block
     // easy
-    for (var b = 0; b < stacks[s].length; b++) {
-        var block = blocks[stacks[s][b][0]];
+    for (let b = 0; b < stacks[s].length; b++) {
+        let block = blocks[stacks[s][b][0]];
         block.children = stacks[s][b][2];
         if (b < stacks[s].length - 1) {
-            next = stacks[s][b+1][0];
+            let next = stacks[s][b+1][0];
             if (!block.children.includes(next)) {
                 block.next = stacks[s][b+1][0];
             }
         }
     }
 
-    // Iterate to calculate size
-
-    // create konva objects for block --
-
-    for (var b = 0; b < stacks[s].length; b++) {
-        var block = blocks[stacks[s][b][0]];
-
-        let textwidths = [];
-        let textobjects = [];
-        let argboxobjects = [];
-        for (t = 0; t < block.text.length; t++) {
-            textfill = (block.skeleton[t] == 1) ? 'black' : 'white';
-            var text = new Konva.Text({
-                text: block.text[t],
-                fontSize: 20 * SCALE,
-                fontFamily: 'Helvetica',
-                fontStyle: 'bold',
-                fill: textfill,
-            })
-            textwidths.push(text.width());
-            textobjects.push(text);
-
-            let argfill = colors[block.color];
-            let argweight = 0;
-            let opacity = 0;
-            if (block.skeleton[t] == 1) {
-                argfill = 'white';
-                argweight = strokeweight;
-                opacity = 1;
-            }
-            var argbox = new Konva.Rect({
-                width: block.textwidths[t],
-                height: BLOCK_HEIGHT * SCALE,
-                fill: argfill,
-                stroke: highlight_colors[block.color],
-                strokeWidth: argweight,
-                opacity: opacity,
-                cornerRadius: ROUNDEDNESS * SCALE,
-            });
-            argboxobjects.push(argbox);
-
-        }
-
-        block.textwidths = textwidths;
-        block.textobjects = textobjects;
-        block.argboxobjects = argboxobjects;
-
-        let r = ROUNDEDNESS * SCALE;
-        let cornerRadius = (block.blocktype == 0) ? [0,r,r,0] : r;
-        var rect = new Konva.Rect({
-            fill: colors[block.color],
-            stroke: highlight_colors[block.color],
-            strokeWidth: strokeweight,
-            cornerRadius: cornerRadius,
-        });
-        block.rectobject = rect;
-        // can (and should ) be optimized
-        var blockgroup = new Konva.Group({draggable: true});
-        block.groupobject = blockgroup;
-    }
-
-    for (var b = 0; b < stacks[s].length; b++) {
-        var block = blocks[stacks[s][b][0]];
+    for (let b = 0; b < stacks[s].length; b++) {
+        let block = blocks[stacks[s][b][0]];
         block.updateSize();
     }
 
-    for (var b = 0; b < stacks[s].length; b++) {
+    for (let b = 0; b < stacks[s].length; b++) {
         //calculate location of each block
-        var block = blocks[stacks[s][b][0]];
+        let block = blocks[stacks[s][b][0]];
         block.updateLocation();
     }
-
-    for (var b = 0; b < stacks[s].length; b++) {
-
-        var block = blocks[stacks[s][b][0]];
-
-        stackheight += block.height;
-        blockheights.push(block.height);
-
-        var blockgroup = block.groupobject;
-
-        blockgroup.add(block.rectobject);
-        for (const argbox of block.argboxobjects){
-            argbox.blockobject = block;
-            blockgroup.add(argbox);
-        }
-        for (const text of block.textobjects){
-            text.blockobject = block;
-            blockgroup.add(text);
-        }
-
-        blockgroup.on('mouseover', function () {
-            document.body.style.cursor = 'pointer';
-        });
-
-
-
-        blockgroup.on('mouseout', function () {
-            document.body.style.cursor = 'default';
-        });
-
-        blockgroup.block_stack = s;
-        let block_id = stacks[s][b][0];
-        blockgroup.block_id = block_id;
-
-        blockgroup.on('dragmove', function () {
-
-            blocks[this.block_id].dragged = true;
-            dragged_stack = this.block_stack;
-
-            this.offsetX(0);
-            this.offsetY(0);
-            blocks[this.block_id].x = this.absolutePosition().x;
-            blocks[this.block_id].y = this.absolutePosition().y;
-
-            var stacklength = stacks[this.block_stack].length;
-            for (var b2 = 0; b2 < stacklength; b2++) {
-                //calculate location of each block
-                var block2 = blocks[stacks[this.block_stack][b2][0]];
-                block2.updateLocation();
-
-                // move stack to front layer!
-                block2.groupobject.zIndex(blocks.length - stacklength + b2 + 1);
-            }
-
-            findHoveredBlock();
-            for (block of blocks) {
-                block.updateSize();
-                //block.groupobject.zIndex(1);
-            }
-        });
-
-        blockgroup.on('dragend', function () {
-            // iterate to find location of block in stack?
-
-            if (blocks[this.block_id].library_block) {
-                let lib_block = blocks[this.block_id];
-                lib_block.library_block = false;
-                // create a new block
-
-                // VERY IMPORTANT TO WORK ON!!!
-                stacklength += 1
-                spawnBlock(lib_block.name, [], 0, 0);
-                stacks.push([[stacklength, lib_block.name, [], [], [0, 0]]])
-                var blockgroup = new Konva.Group({draggable: true});
-                block.groupobject = blockgroup;
-                layer.add(blockgroup);
-            }
-
-            blocks[this.block_id].dragged = false;
-
-            var insert_stack = -1;
-            var insert_block = -1;
-            for (let s = 0; s < stacks.length; s++) {
-                for (let b = 0; b < stacks[s].length; b++) {
-                    if (stacks[s][b][0] == hovered_block) {
-                        insert_stack = s;
-                        insert_block = b;
-                    }
-                }
-            }
-            let block_inserted = stacks[dragged_stack][0][0];
-            if (blocks[block_inserted].blocktype == 0) {return}
-
-            if (insert_block != -1) {
-
-                // change the child parameter in the stack
-                stacks[insert_stack][insert_block][2][hovered_arg] = stacks[dragged_stack][0][0];
-
-                let first_part = stacks[insert_stack].slice(0, insert_block+1);
-                let middle_part = stacks[dragged_stack];
-                let last_part = stacks[insert_stack].slice(insert_block + 1);
-                new_stack = first_part.concat(middle_part).concat(last_part);
-                stacks[insert_stack] = new_stack;
-                stacks.splice(dragged_stack,1);
-                updateBlocks();
-            }
-
-
-        });
-
-        blockgroup.on('dragstart', function () {
-            var parent = null;
-            blocks[this.block_id].dragged = true;
-            for (let s = 0; s < stacks.length; s++) {
-                for (let b = 0; b < stacks[s].length; b++) {
-
-                    // get the parent and replace it with -1.
-
-                    let children = stacks[s][b][2];
-                    if (stacks[s][b][2].includes(this.block_id)) {
-                        parent = stacks[s][b][0];
-                        index = children.indexOf(this.block_id);
-                        children[index] = -1;
-                    }
-
-                    if (stacks[s][b][0] == this.block_id && b > 0) {
-
-                        // we found the block to remove.
-
-                        // iterate until finding a block that is not a child, to get length of substack.
-
-                        let subchilds = [];
-
-                        subchilds = subchilds.concat(stacks[s][b][2]);
-                        let b2 = b;
-                        b2++;
-                        while (b2 < stacks[s].length && subchilds.includes(stacks[s][b2][0])) {
-                            subchilds = subchilds.concat(stacks[s][b2][2]);
-                            b2++;
-                        }
-
-                        // splice out the removed substack.
-
-                        // replace instances of 
-                        let oldstack = stacks[s].slice(0, b);
-                        let newstack = stacks[s].slice(b, b2);
-                        let endstack = [];
-                        if (stacks[s].length > b2) {
-                            endstack = stacks[s].slice(-(stacks[s].length-b2));
-                        }
-
-                        if (blocks[this.block_id].blocktype == 1) {
-                            oldstack = oldstack.concat(endstack);
-                        } else {
-                            newstack = newstack.concat(endstack);
-                        }
-                        stacks.splice(s, 1);
-                        stacks.push(oldstack);
-                        stacks.push(newstack);
-                        blocks[this.block_id].block_stack = stacks[s].length - 1;
-                        //need to cleanup
-
-                        //initializing new stack
-                        for (let k = 0; k < stacks[stacks.length-1].length; k++) {
-                            let underblock = blocks[stacks[stacks.length-1][k][0]];
-                            let underblockobject = underblock.groupobject;
-                            if (k == 0) {
-                                this.x(underblock.x);
-                                this.y(underblock.y);
-                                this.offsetX(underblock.x);
-                                this.offsetY(underblock.y);
-                            }
-                            underblockobject.block_stack = stacks.length - 1;
-                        }
-
-                        updateBlocks();
-
-                        return;
-                    }
-                }
-            }
-        });
-
-        blockgroup.on('click', function () {
-            if (stack_being_run == this.block_stack) {
-                stack_being_run = -1
-                updateBlocks();
-                makeShader(DEFAULT_SHADER_CODE);
-            } else {
-                stack_being_run = this.block_stack;
-                updateBlocks();
-                updateShaderCode();
-                console.log(shader_code);
-                makeShader(shader_code);
-                for (i = 0; i < stacks[stack_being_run].length; i++) {
-                    let block_to_run = blocks[stacks[stack_being_run][i][0]];
-                    if (block_to_run.blocktype == 0) {
-                        block_to_run.eval();
-                    }
-                }
-            }
-        });
-
-        layer.add(blockgroup);
-        blockgroup.zIndex(b+1);
-    }
-
-    // var stackgroup = new Konva.Group();
-
-    // var stackrect = new Konva.Rect({
-    //     x: 0,
-    //     y: 0,
-    //     fill: "white",
-    //     opacity: 0.5,
-    //     width: 50,
-    //     height: 50,
-    // });
-
-    // stackgroup.add(stackrect);
-
-    // layer.add(stackgroup);
-    // stackobjects.push(stackgroup);
-    stage.add(layer);
-
 }
+
+stage.add(layer);
 
 updateBlocks();
 
@@ -1187,7 +1442,7 @@ makeShader(shader_code);
 
 let frame = 0;
 
-everyFrame = function() {
+let everyFrame = function() {
     frame += 1;
 
     const frameUniform = gl.getUniformLocation(program, 'frame');
