@@ -1,16 +1,25 @@
-const COLORS = ['#DA0000', '#CB5E00', '#998300', '#008430', '#006DCB', '#84004F', '#CB008B'];
-const HIGHLIGHT_COLORS = ["#A2003C", "#A02E00", "#576400", "#006273", "#1637A8", "#250033", "#860099"];
+// const COLORS = ['#DA0000', '#CB5E00', '#998300', '#008430', '#006DCB', '#84004F', '#CB008B'];
+// const HIGHLIGHT_COLORS = ["#A2003C", "#A02E00", "#576400", "#006273", "#1637A8", "#250033", "#860099"];
 
-const OPERATION_COLOR = 3;
+const COLORS =           ['#FF0000', '#D77600', '#AD8E00', '#52B31E', '#008E07', '#008AC2', '#0002FE', '#85008A', '#D930A3', '#7B7B7B'];
+const HIGHLIGHT_COLORS = ["#C20051", "#BE3F00", "#537000", "#008A56", "#005C62", "#003F9B", "#2E0075", "#350066", "#AA0099", "#42486E"];
+
+const OPERATION_COLOR = 4;
 const LOGIC_COLOR = 1;
 const FLOW_COLOR = 2;
 const BLOCK_HEIGHT = 30;
 const ROUNDEDNESS = 15;
 const SCALE = .75;
+const PRINT_COLOR = 8;
+const COLORING_COLOR = 9;
+const VARYING_COLOR = 6;
 
 const MARGIN_X = 8;
 const MARGIN_Y = 4;
 const STROKE_WEIGHT = 2;
+
+const CONTACT_WIDTH = 100;
+const CONTACT_HEIGHT = 20;
 
 // var c = document.getElementById("canvas");
 // var ctx = c.getContext("2d");
@@ -22,6 +31,7 @@ const STROKE_WEIGHT = 2;
 
 let hovered_block = -1;
 let hovered_arg = -1;
+let hovered_contact = -1;
 
 let dragged_stack = -1;
 
@@ -65,7 +75,7 @@ var stacks = [
     // [19, "timer", [], []]
     // ]
 
-    [[0, "color", [1, 2, 3, -1], ["0", "0", "0", "1"], [50, 300]],
+    [[0, "color", [1, 2, 3, -1], ["0", "0", "0", "1"], [300, 300]],
     [1, "x", [], []],
     [2, "y", [], []],
     [3, "sine", [4], [90]],
@@ -74,7 +84,7 @@ var stacks = [
     ]
 ]
 
-const BLOCK_LIBRARY = ["print", "color", "add", "subtract", "multiply", "divide", "mod", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
+const BLOCK_LIBRARY = ["print", "color", "red", "green", "blue", "transparency", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
 
 
 class Block {
@@ -104,14 +114,13 @@ class Block {
         // hover highlight
         let argnum = 0;
         for (let i = 0; i < this.skeleton.length; i++) {
-            if (hovered_block == this.id) {
-                if (argnum == hovered_arg) {
-                    this.argboxobjects[i].stroke('cyan');
-                } else {
-                    this.argboxobjects[i].stroke(HIGHLIGHT_COLORS[this.color]);
-                }
-            } else {
-                this.argboxobjects[i].stroke(HIGHLIGHT_COLORS[this.color]);
+            this.argboxobjects[i].stroke(HIGHLIGHT_COLORS[this.color]);
+            if (hovered_block == this.id && stacks[dragged_stack] != null) {
+                    if (blocks[stacks[dragged_stack][0][0]].blocktype == 1) {
+                        if (argnum == hovered_arg) {
+                            this.argboxobjects[i].stroke('cyan');
+                        }
+                    }
             }
             if (this.skeleton[i] == 1) {argnum += 1;}
         }
@@ -155,6 +164,17 @@ class Block {
             argbox.width(this.textwidths[a] + 2 * MARGIN_X * SCALE);
             argbox.height(BLOCK_HEIGHT * SCALE);
         }
+
+        this.bottom_contact_rect.y(this.height);
+
+        if (this.id == hovered_block && this.blocktype != 1) {
+            this.top_contact_rect.opacity( hovered_contact == 1 ? .5 : 0);
+            this.bottom_contact_rect.opacity( hovered_contact == 2 ? .5 : 0);
+        } else {
+            this.top_contact_rect.opacity(0);   
+            this.bottom_contact_rect.opacity(0);
+        }
+
     }
 
     updateLocation() {
@@ -224,6 +244,9 @@ class Block {
 
     shadercode_template = [];
 
+    top_contact_rect = null;
+    bottom_contact_rect = null;
+
     constructor(id) {
         this.id = id
         this.x = 0;
@@ -268,7 +291,7 @@ class ClampBlock extends StackBlock {}
 class DoubleClampBlock extends StackBlock {}
 class PrintBlock extends StackBlock {
     block_name = "print";
-    color = 6;
+    color = PRINT_COLOR;
     skeleton = [0, 1];
     text = ["print", "Hello!"];
     shadercode_template = ["//", "\n"];
@@ -281,7 +304,7 @@ class PrintBlock extends StackBlock {
 }
 class ColorBlock extends StackBlock {
     block_name = "color";
-    color = 5;
+    color = COLORING_COLOR;
     skeleton = [0,1,0,1,0,1,0,1];
     text = ["red", "0", "green", "0", "blue", "0", "transparent", "1"];
     shadercode_template = ["fragColor = vec4(", ", ", ", ", ", ", ");\n"];
@@ -289,21 +312,21 @@ class ColorBlock extends StackBlock {
 
 class XBlock extends ArgBlock {
     block_name = "x";
-    color = 4;
+    color = VARYING_COLOR;
     skeleton = [0];
     text = ["X"];
     shadercode_template = ["coord.x"];
 }
 class YBlock extends ArgBlock {
     block_name = "y";
-    color = 4;
+    color = VARYING_COLOR;
     skeleton = [0];
     text = ["Y"];
     shadercode_template = ["coord.y"];
 }
 class TimerBlock extends ArgBlock {
     block_name = "timer";
-    color = 4;
+    color = VARYING_COLOR;
     skeleton = [0];
     text = ["timer"];
     shadercode_template = ["frame"];
@@ -312,9 +335,9 @@ class TimerBlock extends ArgBlock {
 class RedBlock extends StackBlock {
     block_name = "red";
     color = 0;
-    skeleton = [0];
-    text = ["red"];
-    shadercode_template = ["red"];
+    skeleton = [0, 1];
+    text = ["set red", "1"];
+    shadercode_template = ["r = float(", ");\n"];
 }
 
 class OrangeBlock extends StackBlock {
@@ -335,18 +358,18 @@ class YellowBlock extends StackBlock {
 
 class GreenBlock extends StackBlock {
     block_name = "green";
-    color = 3;
-    skeleton = [0];
-    text = ["green"];
-    shadercode_template = ["green"];
+    color = 4;
+    skeleton = [0, 1];
+    text = ["set green", "1"];
+    shadercode_template = ["g = float(", ");\n"];
 }
 
 class BlueBlock extends StackBlock {
     block_name = "blue";
-    color = 4;
-    skeleton = [0, 1, 0, 1, 0, 1];
-    text = ["blue", "is", "the", "best", "color", "ever"];
-    shadercode_template = ["blue"];
+    color = 6;
+    skeleton = [0, 1];
+    text = ["set blue", "1"];
+    shadercode_template = ["b = float(", ");\n"];
 }
 
 class PurpleBlock extends StackBlock {
@@ -363,6 +386,14 @@ class PinkBlock extends StackBlock {
     skeleton = [0];
     text = ["pink"];
     shadercode_template = ["pink"];
+}
+
+class TransparencyBlock extends StackBlock {
+    block_name = "transparency";
+    color = 9;
+    skeleton = [0, 1];
+    text = ["set transparency ", "0.5"];
+    shadercode_template = ["a = float(", ");\n"];
 }
 
 class AddBlock extends ArgBlock {
@@ -465,6 +496,43 @@ class TangentBlock extends ArgBlock {
         return Math.tan(parseFloat(this.args[0]));
     }
 }
+class EqualBlock extends ArgBlock {
+    block_name = "equal";
+    color = OPERATION_COLOR
+    skeleton = [1, 0, 1, 0];
+    text = [" ", "=", " ", "?"];
+    shadercode_template = ["(", " == ", ")"];
+
+    eval () {
+        this.prepArgs();
+        return parseFloat(this.args[0]) == parseFloat(this.args[1]);
+    }
+}
+
+class LessThanBlock extends ArgBlock {
+    block_name = "lessthan";
+    color = OPERATION_COLOR
+    skeleton = [1, 0, 1, 0];
+    text = [" ", "<", " ", "?"];
+    shadercode_template = ["(", " < ", ")"];
+
+    eval () {
+        this.prepArgs();
+        return parseFloat(this.args[0]) < parseFloat(this.args[1]);
+    }
+}
+class GreaterThanBlock extends ArgBlock {
+    block_name = "lessthan";
+    color = OPERATION_COLOR
+    skeleton = [1, 0, 1, 0];
+    text = [" ", ">", " ", "?"];
+    shadercode_template = ["(", " > ", ")"];
+
+    eval () {
+        this.prepArgs();
+        return parseFloat(this.args[0]) > parseFloat(this.args[1]);
+    }
+}
 class AndBlock extends BoolArgBlock {
     block_name = "and";
     color = LOGIC_COLOR
@@ -554,8 +622,27 @@ let background = new Konva.Rect({
     fill: "#222233",
     width: width,
     height: height
-})
+});
 layer.add(background);
+
+let sidebar = new Konva.Rect({
+    fill: "#FFFFFF",
+    opacity: 0.2,
+    width: 400 * SCALE,
+    height: height
+});
+layer.add(sidebar);
+
+let library_text = new Konva.Text({
+    x: 50 * SCALE,
+    y: 10 * SCALE,
+    text: "LIBRARY",
+    fontStyle: 'bold',
+    fontSize: 30 * SCALE,
+    fontFamily: 'Helvetica',
+    fill: "#FFFFFF"
+});
+layer.add(library_text);
 
 
 //get total number of blocks in stack
@@ -608,6 +695,7 @@ function blockObjectFromName(blockname) {
         case "blue": b = new BlueBlock(); break;
         case "purple": b = new PurpleBlock(); break;
         case "pink": b = new PinkBlock(); break;
+        case "transparency": b = new TransparencyBlock(); break;
         case "add": b = new AddBlock(); break;
         case "subtract": b = new SubtractBlock(); break;
         case "multiply": b = new MultiplyBlock(); break;
@@ -622,6 +710,9 @@ function blockObjectFromName(blockname) {
         case "true": b = new TrueBlock(); break;
         case "false": b = new FalseBlock(); break;
         case "if": b = new IfBlock(); break;
+        case "equal": b = new EqualBlock(); break;
+        case "lessthan": b = new LessThanBlock(); break;
+        case "greaterthan": b = new GreaterThanBlock(); break;
 
         default: b = new Block();
     }
@@ -659,7 +750,6 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
     block.library_block = library_block;
 
     if (textArgs.length != 0) {
-        console.log(textArgs);
         block.textArgs = [];
         for (let textArg of textArgs) {
             block.textArgs.push(textArg.toString())
@@ -703,140 +793,151 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
         textNode.text_id = t;
         textNode.arg_num = a;
 
+        textNode.writing = function () {
+                        // hide text node and transformer:
+                        textNode.hide();
+    
+                        // create textarea over canvas with absolute position
+                        // first we need to find position for textarea
+                        // how to find it?
+                
+                        // at first lets find position of text node relative to the stage:
+                        var textPosition = textNode.absolutePosition();
+                
+                        // so position of textarea will be the sum of positions above:
+                        var areaPosition = {
+                          x: stage.container().offsetLeft + textPosition.x,
+                          y: stage.container().offsetTop + textPosition.y,
+                        };
+                
+                        // create textarea and style it
+                        var textarea = document.createElement('textarea');
+                        document.body.appendChild(textarea);
+                
+                        // apply many styles to match text on canvas as close as possible
+                        // remember that text rendering on canvas and on the textarea can be different
+                        // and sometimes it is hard to make it 100% the same. But we will try...
+                        textarea.value = textNode.text();
+                        textarea.style.position = 'absolute';
+                        textarea.style.top = areaPosition.y + 'px';
+                        textarea.style.left = areaPosition.x + 'px';
+                        textarea.style.width = textNode.width() - textNode.padding() * 2 + 'px';
+                        textarea.style.height =
+                          textNode.height() - textNode.padding() * 2 + 5 + 'px';
+                        textarea.style.fontSize = textNode.fontSize() + 'px';
+                        textarea.style.border = 'none';
+                        textarea.style.padding = '0px';
+                        textarea.style.margin = '0px';
+                        textarea.style.overflow = 'hidden';
+                        textarea.style.background = 'none';
+                        textarea.style.outline = 'none';
+                        textarea.style.resize = 'none';
+                        textarea.style.lineHeight = textNode.lineHeight();
+                        textarea.style.fontFamily = textNode.fontFamily();
+                        textarea.style.fontStyle = textNode.fontStyle();
+                        textarea.style.transformOrigin = 'left top';
+                        textarea.style.textAlign = textNode.align();
+                        textarea.style.color = textNode.fill();
+                        var transform = '';
+                
+                        var px = 0;
+                        // also we need to slightly move textarea on firefox
+                        // because it jumps a bit
+                        var isFirefox =
+                          navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+                        if (isFirefox) {
+                          px += 2 + Math.round(textNode.fontSize() / 20);
+                        }
+                        transform += 'translateY(-' + px + 'px)';
+                
+                        textarea.style.transform = transform;
+                
+                        // reset height
+                        textarea.style.height = 'auto';
+                        // after browsers resized it we can set actual value
+                        textarea.style.height = textarea.scrollHeight + 3 + 'px';
+                
+                        textarea.focus();
+                
+                        function removeTextarea() {
+                          if (textarea.parentNode != null) {
+                            textarea.parentNode.removeChild(textarea);
+                          }
+                          window.removeEventListener('click', handleOutsideClick);
+                          textNode.show();
+                        }
+                
+                        function setTextareaWidth(newWidth) {
+                          if (!newWidth) {
+                            // set width for placeholder
+                            if (textNode.placeholder != null) {
+                                newWidth = textNode.placeholder.length * textNode.fontSize();
+                            }
+                          }
+                          // some extra fixes on different browsers
+                          var isSafari = /^((?!chrome|android).)*safari/i.test(
+                            navigator.userAgent
+                          );
+                          var isFirefox =
+                            navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+                          if (isSafari || isFirefox) {
+                            newWidth = Math.ceil(newWidth);
+                          }
+                
+                          var isEdge =
+                            document.documentMode || /Edge/.test(navigator.userAgent);
+                          if (isEdge) {
+                            newWidth += 1;
+                          }
+                          textarea.style.width = newWidth + 'px';
+                        }
+                
+                        textarea.addEventListener('keydown', function (e) {
+                          // hide on enter
+                          // but don't hide on shift + enter
+                        //   if (e.keyCode === 13 && !e.shiftKey) {
+                        //     textNode.text(textarea.value);
+                        //     removeTextarea();
+                        //   }
+                          // on esc do not set value back to node
+                        //   if (e.keyCode === 27) {
+                        //     removeTextarea();
+                        //   }
+                        });
+                
+                        textarea.addEventListener('keydown', function (e) {
+                            let scale = textNode.getAbsoluteScale().x + 10;
+                            setTextareaWidth(textNode.width() * scale);
+                            textarea.style.height = 'auto';
+                            textarea.style.height =
+                                textarea.scrollHeight + textNode.fontSize() + 'px';
+            
+                            textNode.text(textarea.value);
+                            textNode.block.textArgs[textNode.arg_num] = textarea.value;
+                            updateBlocks();
+                        });
+                
+                        function handleOutsideClick(e) {
+                          if (e.target !== textarea) {
+                            textNode.text(textarea.value);
+                            textNode.block.textArgs[textNode.arg_num] = textarea.value;
+                            updateBlocks();
+                            removeTextarea();
+                          }
+                        }
+                        setTimeout(() => {
+                          window.addEventListener('click', handleOutsideClick);
+                        });
+                        setTimeout(() => {
+                          window.addEventListener('mousedown', handleOutsideClick);
+                        });
+                    }
+
         if (block.skeleton[t] == 1) {
             a += 1;
-        textNode.on('click tap', () => {
-            // hide text node and transformer:
-            textNode.hide();
-    
-            // create textarea over canvas with absolute position
-            // first we need to find position for textarea
-            // how to find it?
-    
-            // at first lets find position of text node relative to the stage:
-            var textPosition = textNode.absolutePosition();
-    
-            // so position of textarea will be the sum of positions above:
-            var areaPosition = {
-              x: stage.container().offsetLeft + textPosition.x,
-              y: stage.container().offsetTop + textPosition.y,
-            };
-    
-            // create textarea and style it
-            var textarea = document.createElement('textarea');
-            document.body.appendChild(textarea);
-    
-            // apply many styles to match text on canvas as close as possible
-            // remember that text rendering on canvas and on the textarea can be different
-            // and sometimes it is hard to make it 100% the same. But we will try...
-            textarea.value = textNode.text();
-            textarea.style.position = 'absolute';
-            textarea.style.top = areaPosition.y + 'px';
-            textarea.style.left = areaPosition.x + 'px';
-            textarea.style.width = textNode.width() - textNode.padding() * 2 + 'px';
-            textarea.style.height =
-              textNode.height() - textNode.padding() * 2 + 5 + 'px';
-            textarea.style.fontSize = textNode.fontSize() + 'px';
-            textarea.style.border = 'none';
-            textarea.style.padding = '0px';
-            textarea.style.margin = '0px';
-            textarea.style.overflow = 'hidden';
-            textarea.style.background = 'none';
-            textarea.style.outline = 'none';
-            textarea.style.resize = 'none';
-            textarea.style.lineHeight = textNode.lineHeight();
-            textarea.style.fontFamily = textNode.fontFamily();
-            textarea.style.fontStyle = textNode.fontStyle();
-            textarea.style.transformOrigin = 'left top';
-            textarea.style.textAlign = textNode.align();
-            textarea.style.color = textNode.fill();
-            var transform = '';
-    
-            var px = 0;
-            // also we need to slightly move textarea on firefox
-            // because it jumps a bit
-            var isFirefox =
-              navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-            if (isFirefox) {
-              px += 2 + Math.round(textNode.fontSize() / 20);
-            }
-            transform += 'translateY(-' + px + 'px)';
-    
-            textarea.style.transform = transform;
-    
-            // reset height
-            textarea.style.height = 'auto';
-            // after browsers resized it we can set actual value
-            textarea.style.height = textarea.scrollHeight + 3 + 'px';
-    
-            textarea.focus();
-    
-            function removeTextarea() {
-              textarea.parentNode.removeChild(textarea);
-              window.removeEventListener('click', handleOutsideClick);
-              textNode.show();
-            }
-    
-            function setTextareaWidth(newWidth) {
-              if (!newWidth) {
-                // set width for placeholder
-                newWidth = textNode.placeholder.length * textNode.fontSize();
-              }
-              // some extra fixes on different browsers
-              var isSafari = /^((?!chrome|android).)*safari/i.test(
-                navigator.userAgent
-              );
-              var isFirefox =
-                navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-              if (isSafari || isFirefox) {
-                newWidth = Math.ceil(newWidth);
-              }
-    
-              var isEdge =
-                document.documentMode || /Edge/.test(navigator.userAgent);
-              if (isEdge) {
-                newWidth += 1;
-              }
-              textarea.style.width = newWidth + 'px';
-            }
-    
-            textarea.addEventListener('keydown', function (e) {
-              // hide on enter
-              // but don't hide on shift + enter
-              if (e.keyCode === 13 && !e.shiftKey) {
-                textNode.text(textarea.value);
-                removeTextarea();
-              }
-              // on esc do not set value back to node
-              if (e.keyCode === 27) {
-                removeTextarea();
-              }
+            textNode.on('click tap', () => {
+                textNode.writing();
             });
-    
-            textarea.addEventListener('keydown', function (e) {
-                let scale = textNode.getAbsoluteScale().x;
-                setTextareaWidth(textNode.width() * scale);
-                textarea.style.height = 'auto';
-                textarea.style.height =
-                    textarea.scrollHeight + textNode.fontSize() + 'px';
-
-                textNode.text(textarea.value);
-                textNode.block.textArgs[textNode.arg_num] = textarea.value;
-                updateBlocks();
-            });
-    
-            function handleOutsideClick(e) {
-              if (e.target !== textarea) {
-                textNode.text(textarea.value);
-                textNode.block.textArgs[textNode.arg_num] = textarea.value;
-                updateBlocks();
-                removeTextarea();
-              }
-            }
-            setTimeout(() => {
-              window.addEventListener('click', handleOutsideClick);
-            });
-        });
         }
 
         textwidths.push(textNode.width());
@@ -862,6 +963,26 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
         argboxobjects.push(argbox);
 
     }
+
+    let top_contact_rect = new Konva.Rect({
+        y: -CONTACT_HEIGHT * SCALE,
+        width: CONTACT_WIDTH * SCALE,
+        height: CONTACT_HEIGHT * SCALE,
+        fill: "#FFFFFF",
+        opacity: 0.5,
+        cornerRadius: 0,
+    });
+
+    let bottom_contact_rect = new Konva.Rect({
+        width: CONTACT_WIDTH * SCALE,
+        height: CONTACT_HEIGHT * SCALE,
+        fill: "#FFFFFF",
+        opacity: 0.5,
+        cornerRadius: 0,
+    });
+
+    block.top_contact_rect = top_contact_rect;
+    block.bottom_contact_rect = bottom_contact_rect;
 
     block.textwidths = textwidths;
     block.textobjects = textobjects;
@@ -894,6 +1015,9 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
         blockgroup.add(text);
     }
 
+    blockgroup.add(block.top_contact_rect);
+    blockgroup.add(block.bottom_contact_rect);
+
     blockgroup.block_stack = block.block_stack;
     blockgroup.block_id = block.id;
 
@@ -922,18 +1046,22 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
             block2.updateLocation();
 
             // move stack to front layer!
-            block2.groupobject.zIndex(blocks.length - stacklength + b2 + 1);
+            block2.groupobject.zIndex(blocks.length - stacklength + b2 + 3);
         }
 
         findHoveredBlock();
         for (block of blocks) {
             block.updateSize();
-            //block.groupobject.zIndex(1);
         }
     });
 
     blockgroup.on('dragend', function () {
         // iterate to find location of block in stack?
+
+        if (this.x() < 400 * SCALE) {
+            stacks.splice(dragged_stack,1);
+            // delete blocks
+        }
 
         if (blocks[this.block_id].library_block) {
             let lib_block = blocks[this.block_id];
@@ -943,13 +1071,6 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
             updateBlocks();
             // create a new block
 
-            // VERY IMPORTANT TO WORK ON!!!
-            // stacklength += 1
-            // spawnBlock(lib_block.name, [], 0, 0);
-            // stacks.push([[stacklength, lib_block.name, [], [], [0, 0]]])
-            // var blockgroup = new Konva.Group({draggable: true});
-            // block.groupobject = blockgroup;
-            // layer.add(blockgroup);
         }
 
         blocks[this.block_id].dragged = false;
@@ -1061,8 +1182,6 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
     blockgroup.on('click', function () {
         dragged_stack = -1;
         findMouseOveredBlock();
-        console.log(hovered_block);
-        console.log(hovered_arg);
         if (hovered_arg == -1) {
             if (stack_being_run == this.block_stack) {
                 stack_being_run = -1
@@ -1081,11 +1200,27 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
                     }
                 }
             }
+        } else {
+            let block = blocks[hovered_block];
+
+            let arg = -1;
+            let hovered_text = 0
+            for (let i = 0; i < block.skeleton.length; i++){
+                if (block.skeleton[i] == 1) {
+                    arg += 1;
+                    if (arg == hovered_arg) {
+                        hovered_text = i;
+                    }
+                }
+            }
+
+            let textObject = block.textobjects[hovered_text];
+            textObject.writing();
         }
     });
 
     layer.add(blockgroup);
-    blockgroup.zIndex(block.id+1);
+    blockgroup.zIndex(block.id+3);
 
 }
 
@@ -1119,6 +1254,7 @@ function findMouseOveredBlock () {
 
     hovered_block = -1;
     hovered_arg = -1;
+    hovered_contact = -1
 
     for (let stack of stacks) {
         for (let stackitem of stack) {
@@ -1175,12 +1311,17 @@ function findHoveredBlock () {
 
     hovered_block = -1;
     hovered_arg = -1;
+    hovered_contact = -1;
 
     for (let stack of stacks) {
         for (let stackitem of stack) {
             let block = blocks[stackitem[0]];
             if (!block.dragged) {
+
                 var dragged_block = blocks[stacks[dragged_stack][0][0]];
+
+                // first find oval arguments
+
                 var dragX = dragged_block.groupobject.x();
                 var dragY = dragged_block.groupobject.y();
                 var distX = dragX - block.x;
@@ -1214,6 +1355,28 @@ function findHoveredBlock () {
                         if (stackitem[2][prosp_hovered_arg] == -1) {
                             hovered_arg = prosp_hovered_arg;
                             hovered_block = prosp_hovered_block;
+                        }
+                    }
+                }
+
+                // then find bottom & top connection points
+
+                if (blocks[stacks[dragged_stack][0][0]].blocktype != 1) { 
+
+                if (distX > 0 && distX < CONTACT_WIDTH * SCALE) {
+                    
+                    if (distY > -dragged_block.height - CONTACT_HEIGHT * SCALE &&
+                            distY < -dragged_block.height) {
+
+                            hovered_block = stackitem[0];
+                            hovered_contact = 1;
+                        }
+
+                        if (distY > block.height &&
+                            distY < block.height+CONTACT_HEIGHT * SCALE) {
+
+                            hovered_block = stackitem[0];
+                            hovered_contact = 2;
                         }
                     }
                 }
@@ -1385,10 +1548,15 @@ float _tan(int x) {return tan(float(x));}
 float _tan(float x) {return tan(x);}
 
 void main() {
+float r = 0.;
+float g = 0.;
+float b = 0.;
+float a = 1.;
 vec2 coord = gl_FragCoord.xy/canvasSize.xy;
 `;
 
 const fragmentCodeEnd = `
+fragColor = vec4(r, g, b, a);
 }
 `;
 
