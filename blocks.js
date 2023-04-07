@@ -1,6 +1,8 @@
 // const COLORS = ['#DA0000', '#CB5E00', '#998300', '#008430', '#006DCB', '#84004F', '#CB008B'];
 // const HIGHLIGHT_COLORS = ["#A2003C", "#A02E00", "#576400", "#006273", "#1637A8", "#250033", "#860099"];
 
+const GL_WINDOW_WIDTH = 500
+
 const COLORS =           ['#FF0000', '#D77600', '#AD8E00', '#52B31E', '#008E07', '#008AC2', '#0002FE', '#85008A', '#D930A3', '#7B7B7B'];
 const HIGHLIGHT_COLORS = ["#C20051", "#BE3F00", "#537000", "#008A56", "#005C62", "#003F9B", "#2E0075", "#350066", "#AA0099", "#42486E"];
 
@@ -12,7 +14,7 @@ const ROUNDEDNESS = 15;
 const SCALE = .75;
 const PRINT_COLOR = 8;
 const COLORING_COLOR = 9;
-const VARYING_COLOR = 6;
+const VARYING_COLOR = 5;
 
 const MARGIN_X = 8;
 const MARGIN_Y = 4;
@@ -20,6 +22,11 @@ const STROKE_WEIGHT = 2;
 
 const CONTACT_WIDTH = 100;
 const CONTACT_HEIGHT = 20;
+
+const CLAMP_WIDTH = 20;
+const CLAMP_HEIGHT = 20;
+
+const EMPTY_CLAMP_HEIGHT = 20;
 
 // var c = document.getElementById("canvas");
 // var ctx = c.getContext("2d");
@@ -44,7 +51,8 @@ let shader_code = DEFAULT_SHADER_CODE;
 let mouseX = 0;
 let mouseY = 0;
 
-var blocks = []
+var blocks = {};
+var num_of_blocks = 0;
 
 var stacks = [
     // [[0, "print", [1], ["Hello"], [10, 10]],
@@ -67,7 +75,8 @@ var stacks = [
     // [13, "pink", [], []]
     // ],
 
-    // [[14, "color", [15, 16, 17, -1], ["0", "0", "0", "1"], [50, 300]],
+    // [
+    // [14, "color", [15, 16, 17, -1], ["0", "0", "0", "1"], [50, 300]],
     // [15, "x", [], []],
     // [16, "y", [], []],
     // [17, "sine", [18], [90]],
@@ -75,16 +84,17 @@ var stacks = [
     // [19, "timer", [], []]
     // ]
 
-    [[0, "color", [1, 2, 3, -1], ["0", "0", "0", "1"], [300, 300]],
-    [1, "x", [], []],
-    [2, "y", [], []],
-    [3, "sine", [4], [90]],
-    [4, "divide", [5, -1], ["0", "10"]],
-    [5, "timer", [], []]
-    ]
+    // [[0, "color", [1, 2, 3, -1], ["0", "0", "0", "1"], [300, 300]],
+    // [1, "x", [], []],
+    // [2, "y", [], []],
+    // [3, "sine", [4], [90]],
+    // [4, "divide", [5, -1], ["0", "10"]],
+    // [5, "timer", [], []]
+    // ]
 ]
 
-const BLOCK_LIBRARY = ["print", "color", "red", "green", "blue", "transparency", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
+//const BLOCK_LIBRARY = ["print", "color", "colorvalue", "red", "green", "blue", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
+const BLOCK_LIBRARY = ["print", "if", "colorrgb", "color", "red", "green", "blue", "gradient", "checker", "add", "subtract", "multiply", "divide", "x", "y", "timer"];
 
 
 class Block {
@@ -97,7 +107,7 @@ class Block {
 
         let arg_num = 0;
         for (let textpart = 0; textpart < this.skeleton.length; textpart++) {
-            if (this.skeleton[textpart] == 1) {
+            if (this.skeleton[textpart] != 0) {
                 this.text[textpart] = this.textArgs[arg_num];
                 arg_num += 1;
             }
@@ -107,8 +117,22 @@ class Block {
         // color block when running code
         if (this.block_stack == stack_being_run) {
             this.rectobject.stroke('yellow');
+            if (this.blocktype == 2 || this.blocktype == 3) {
+                this.bottomclampobject.stroke('yellow');
+                this.sideclampobject.stroke('yellow');
+                if (this.blocktype == 3) {
+                    this.middleclampobject.stroke('yellow');
+                }
+            }
         } else {
             this.rectobject.stroke(HIGHLIGHT_COLORS[this.color]);
+            if (this.blocktype == 2 || this.blocktype == 3) {
+                this.bottomclampobject.stroke(HIGHLIGHT_COLORS[this.color]);
+                this.sideclampobject.stroke(HIGHLIGHT_COLORS[this.color]);
+                if (this.blocktype == 3) {
+                    this.middleclampobject.stroke(HIGHLIGHT_COLORS[this.color]);
+                }
+            }
         }
 
         // hover highlight
@@ -122,13 +146,13 @@ class Block {
                         }
                     }
             }
-            if (this.skeleton[i] == 1) {argnum += 1;}
+            if (this.skeleton[i] != 0) {argnum += 1;}
         }
 
         let max_child_height = 0;
         let child_num = 0;
         for (let c = 0; c < this.skeleton.length; c++) {
-            if (this.skeleton[c] == 1) {
+            if (this.skeleton[c] != 0) {
                 this.textobjects[c].fontStyle('normal');
                 let child = this.children[child_num];
                 if (child != null && child != -1) {
@@ -156,8 +180,39 @@ class Block {
         width += 2 * MARGIN_X * SCALE;
         this.width = width;
         this.height = height;
+        if (this.blocktype == 2 || this.blocktype == 3) {
+            if (this.clamped_block != -1) {
+                this.height_with_clamp = height + stackheight(blocks[this.clamped_block].block_stack);
+            } else {
+                this.height_with_clamp = height + EMPTY_CLAMP_HEIGHT * SCALE;
+            }
+            this.height_with_clamp += CLAMP_HEIGHT * SCALE;
+                this.height_with_first_clamp = this.height_with_clamp;
+            if (this.blocktype == 3) {
+                this.height_with_clamp = this.height_with_first_clamp;
+                if (this.clamped_block != -1) {
+                    this.height_with_clamp += stackheight(blocks[this.clamped_block2].block_stack);
+                } else {
+                    this.height_with_clamp += EMPTY_CLAMP_HEIGHT * SCALE;
+                }
+                this.height_with_clamp += CLAMP_HEIGHT * SCALE;
+            }
+        } else {
+            this.height_with_clamp = height;
+            this.height_with_first_clamp = height;
+        }
         this.rectobject.width(this.width);
         this.rectobject.height(this.height);
+        if (this.blocktype == 2 || this.blocktype == 3) {
+            this.bottomclampobject.width(this.width);
+            this.bottomclampobject.height(CLAMP_HEIGHT * SCALE);
+            if (this.blocktype == 3) {
+                this.middleclampobject.width(this.width);
+                this.middleclampobject.height(CLAMP_HEIGHT * SCALE);
+            }
+            this.sideclampobject.width(CLAMP_WIDTH * SCALE);
+            this.sideclampobject.height(this.height_with_clamp);
+        }
 
         for (let a = 0; a < this.argboxobjects.length; a++) {
             let argbox = this.argboxobjects[a];
@@ -165,31 +220,59 @@ class Block {
             argbox.height(BLOCK_HEIGHT * SCALE);
         }
 
-        this.bottom_contact_rect.y(this.height);
+        this.bottom_contact_rect.y(this.height_with_clamp);
+        this.top_clamp_contact_rect.y(this.height);
+        this.bottom_clamp_contact_rect.y(this.height_with_first_clamp);
+        this.top_clamp_contact_rect.x(CLAMP_WIDTH * SCALE);
+        this.bottom_clamp_contact_rect.x(CLAMP_WIDTH * SCALE);
 
+        this.top_contact_rect.hide();   
+        this.bottom_contact_rect.hide();
+        this.top_clamp_contact_rect.hide();
+        this.bottom_clamp_contact_rect.hide();
         if (this.id == hovered_block && this.blocktype != 1) {
-            this.top_contact_rect.opacity( hovered_contact == 1 ? .5 : 0);
-            this.bottom_contact_rect.opacity( hovered_contact == 2 ? .5 : 0);
-        } else {
-            this.top_contact_rect.opacity(0);   
-            this.bottom_contact_rect.opacity(0);
+            switch(hovered_contact){
+                case 1:
+                    this.top_contact_rect.show(); break;
+                case 2:
+                    this.bottom_contact_rect.show(); break;
+                case 3:
+                    this.top_clamp_contact_rect.show(); break;
+                case 4:
+                    this.bottom_clamp_contact_rect.show(); break;
+            }
         }
 
     }
 
     updateLocation() {
 
+        if (this.block_stack != dragged_stack) {
+            if (this.clamp_parent != -1) {
+                let parent_block = blocks[this.clamp_parent];
+                this.x = parent_block.x + CLAMP_WIDTH * SCALE;
+                this.y = parent_block.y + parent_block.height;
+            }
+        }
+
         if (this.next != null) {
-            if (blocks[this.next].blocktype == 0) {
-                blocks[this.next].y = this.y + this.height;
+            if (blocks[this.next].blocktype != 1) {
+                blocks[this.next].y = this.y + this.height_with_clamp;
                 blocks[this.next].x = this.x;
+            }
+        }
+
+        if (this.blocktype == 2 || this.blocktype == 3) {
+            this.bottomclampobject.y(this.height_with_clamp - CLAMP_HEIGHT * SCALE);
+            if (this.blocktype == 3) {
+                this.middleclampobject.y(this.height_with_first_clamp - CLAMP_HEIGHT * SCALE);
             }
         }
 
         let childx = MARGIN_X;
         let child_num = 0;
         for (let c = 0; c < this.skeleton.length; c++) {
-            if (this.skeleton[c] == 1) {
+            if (this.skeleton[c] != 0) {
                 let child = this.children[child_num];
                 if (child != null && child != -1) {
                     blocks[child].y = this.y + (this.height / 2) - (blocks[child].height / 2);
@@ -225,7 +308,7 @@ class Block {
         this.args = [];
         let child_num = 0;
         for (let i = 0; i < this.skeleton.length; i++) {
-            if (this.skeleton[i] == 1) {
+            if (this.skeleton[i] != 0) {
                 if (this.children[child_num] == null || this.children[child_num] == -1) {
                     this.args.push(this.text[i]);
                 } else {
@@ -246,6 +329,8 @@ class Block {
 
     top_contact_rect = null;
     bottom_contact_rect = null;
+    top_clamp_contact_rect = null;
+    bottom_clamp_contact_rect = null;
 
     constructor(id) {
         this.id = id
@@ -267,6 +352,13 @@ class Block {
         this.library_block = false;
         this.prev_x = this.x;
         this.prev_y = this.y;
+        this.clamped_block = -1;
+        this.clamped_block2 = -1;
+        this.bottomclampobject = null;
+        this.sideclampobject = null;
+        this.height_with_clamp = 0;
+        this.height_with_first_clamp = 0;
+        this.clamp_parent = -1;
     }
     
     skeleton = [0]
@@ -287,8 +379,13 @@ class BoolArgBlock extends ArgBlock {
     blocktype = 1;
 }
 
-class ClampBlock extends StackBlock {}
-class DoubleClampBlock extends StackBlock {}
+class ClampBlock extends StackBlock {
+    blocktype = 2;
+}
+
+class DoubleClampBlock extends StackBlock {
+    blocktype = 3;
+}
 class PrintBlock extends StackBlock {
     block_name = "print";
     color = PRINT_COLOR;
@@ -302,12 +399,43 @@ class PrintBlock extends StackBlock {
         return null;
     }
 }
+class ColorRGBBlock extends StackBlock {
+    block_name = "colorrgb";
+    color = COLORING_COLOR;
+    skeleton = [0,1,0,1,0,1];
+    text = ["set red", "0", "green", "0", "blue", "0"];
+    //shadercode_template = ["fragColor = vec4(", ", ", ", ", ", ", ");\n"];
+    shadercode_template = ["r = float(", "); g = float(", "); b = float(", ");\n"];
+}
 class ColorBlock extends StackBlock {
     block_name = "color";
     color = COLORING_COLOR;
-    skeleton = [0,1,0,1,0,1,0,1];
-    text = ["red", "0", "green", "0", "blue", "0", "transparent", "1"];
-    shadercode_template = ["fragColor = vec4(", ", ", ", ", ", ", ");\n"];
+    skeleton = [0,2];
+    text = ["set color to", "(0,1,0)"];
+    shadercode_template = ["fragColor =", ");\n"];
+}
+
+class GradientBlock extends StackBlock {
+    block_name = "gradient";
+    color = COLORING_COLOR;
+    skeleton = [0,2,0,2];
+    text = ["gradient from ", "(0,1,0)", "to", "(0,1,0)"];
+    shadercode_template = ["r = float(", "); g = float(", "); b = float(", ");\n"];
+}
+class CheckerBlock extends DoubleClampBlock {
+    block_name = "checker";
+    color = COLORING_COLOR;
+    skeleton = [0,1,0,1];
+    text = ["checker ", "4", "by", "4"];
+    //shadercode_template = ["fragColor = vec4(", ", ", ", ", ", ", ");\n"];
+    shadercode_template = ["r = float(", "); g = float(", "); b = float(", ");\n"];
+}
+class ColorValueBlock extends ArgBlock {
+    block_name = "colorvalue";
+    color = COLORING_COLOR;
+    skeleton = [1];
+    text = ["red"];
+    shadercode_template = [""];
 }
 
 class XBlock extends ArgBlock {
@@ -596,18 +724,18 @@ class FalseBlock extends BoolArgBlock {
 class IfBlock extends ClampBlock {
     block_name = "if";
     color = FLOW_COLOR;
-    skeleton = [0, 1, 0, 1];
+    skeleton = [0, 1, 0];
     text = ["if", "false", "then"];
     shadercode_template = ["if (", ") {", "}"];
 
     eval () {
         this.prepArgs();
-        if (this.args[0]) {this.next.eval()}; 
+        if (this.args[0]) {blocks[this.clamped_block][0].eval()} else {this.next.eval()}; 
         return null;
     }
 }
 
-var width = window.innerWidth - 260;
+var width = window.innerWidth - GL_WINDOW_WIDTH;
 var height = window.innerHeight;
 
 var stage = new Konva.Stage({
@@ -657,8 +785,25 @@ for (let stack of stacks) {
 
 // add dummy library blocks
 
-for (let blockname of BLOCK_LIBRARY) {
-    stacks.push([[stacklength + i, blockname, [-1, -1, -1, -1, -1], [], [50, i * 36 + 50]]]);
+function get_block_ids() {
+    let block_ids = [];
+    for (let stack of stacks) {
+        for (let stackitem of stack) {
+            block_ids.push(stackitem[0]);
+        }
+    }
+    return block_ids;
+}
+
+let new_id = 0;
+for (let block_name of BLOCK_LIBRARY) {
+
+    let block_ids = get_block_ids();
+    while (block_ids.includes(new_id)) {
+        new_id += 1;
+        block_ids = get_block_ids();
+    }
+    stacks.push([[new_id, block_name, [-1, -1, -1, -1, -1], [], [50, i * 36 + 50], true]]);
     i += 1;
 }
 
@@ -680,11 +825,25 @@ for (let blockname of BLOCK_LIBRARY) {
 //     }
 // }
 
-function blockObjectFromName(blockname) {
+function stackheight (s) {
+    let height = 0;
+    for (let b = 0; b < stacks[s].length; b++) {
+        let block_id = stacks[s][b][0];
+        blocks[block_id].updateSize();
+        height += blocks[block_id].height_with_clamp;
+    }
+    return height;
+}
+
+function blockObjectFromName(block_name) {
     let b;
-    switch (blockname) {
+    switch (block_name) {
         case "print": b = new PrintBlock(); break;
+        case "colorrgb": b = new ColorRGBBlock(); break;
         case "color": b = new ColorBlock(); break;
+        case "checker": b = new CheckerBlock(); break;
+        case "gradient": b = new GradientBlock(); break;
+        case "colorvalue": b = new ColorValueBlock(); break;
         case "x": b = new XBlock(); break;
         case "y": b = new YBlock(); break;
         case "timer": b = new TimerBlock(); break;
@@ -741,9 +900,9 @@ function blockObjectFromName(blockname) {
 //     blocks.push(b);
 // }
 
-function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
+function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
     // don't modify the stacks!
-    let block = blockObjectFromName(blockname);
+    let block = blockObjectFromName(block_name);
     block.id = id;
     block.x = x;
     block.y = y;
@@ -757,12 +916,13 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
     } else {
         block.textArgs = [];
         for (let s = 0; s < block.skeleton.length; s++) {
-            if (block.skeleton[s] == 1) {
+            if (block.skeleton[s] != 0) {
                 block.textArgs.push(block.text[s]);
             }
         }
     }
-    blocks.push(block);
+    blocks[id] = block;
+    num_of_blocks += 1;
 
     let block_stack = -1;
 
@@ -781,7 +941,7 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
     let argboxobjects = [];
     let a = 0;
     for (t = 0; t < block.text.length; t++) {
-        let textfill = (block.skeleton[t] == 1) ? 'black' : 'white';
+        let textfill = (block.skeleton[t] != 0) ? 'black' : 'white';
         let textNode = new Konva.Text({
             text: block.text[t],
             fontSize: 20 * SCALE,
@@ -914,6 +1074,8 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
             
                             textNode.text(textarea.value);
                             textNode.block.textArgs[textNode.arg_num] = textarea.value;
+
+                            updateShaderCode();
                             updateBlocks();
                         });
                 
@@ -933,7 +1095,7 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
                         });
                     }
 
-        if (block.skeleton[t] == 1) {
+        if (block.skeleton[t] != 0) {
             a += 1;
             textNode.on('click tap', () => {
                 textNode.writing();
@@ -946,8 +1108,11 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
         let argfill = COLORS[block.color];
         let argweight = 0;
         let opacity = 0;
-        if (block.skeleton[t] == 1) {
-            argfill = 'white';
+        if (block.skeleton[t] != 0) {
+            if (block.skeleton[t] == 2)
+                {argfill = 'lime';} 
+            else
+                {argfill = 'white';}
             argweight = STROKE_WEIGHT;
             opacity = 1;
         }
@@ -981,15 +1146,34 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
         cornerRadius: 0,
     });
 
+    let top_clamp_contact_rect = new Konva.Rect({
+        y: -CONTACT_HEIGHT * SCALE,
+        width: CONTACT_WIDTH * SCALE,
+        height: CONTACT_HEIGHT * SCALE,
+        fill: "#FFFFFF",
+        opacity: 0.5,
+        cornerRadius: 0,
+    });
+
+    let bottom_clamp_contact_rect = new Konva.Rect({
+        width: CONTACT_WIDTH * SCALE,
+        height: CONTACT_HEIGHT * SCALE,
+        fill: "#FFFFFF",
+        opacity: 0.5,
+        cornerRadius: 0,
+    });
+
     block.top_contact_rect = top_contact_rect;
     block.bottom_contact_rect = bottom_contact_rect;
+    block.top_clamp_contact_rect = top_clamp_contact_rect;
+    block.bottom_clamp_contact_rect = bottom_clamp_contact_rect;
 
     block.textwidths = textwidths;
     block.textobjects = textobjects;
     block.argboxobjects = argboxobjects;
 
     let r = ROUNDEDNESS * SCALE;
-    let cornerRadius = (block.blocktype == 0) ? [0,r,r,0] : r;
+    let cornerRadius = (block.blocktype != 1) ? [0,r,r,0] : r;
     let rect = new Konva.Rect({
         fill: COLORS[block.color],
         stroke: HIGHLIGHT_COLORS[block.color],
@@ -997,6 +1181,31 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
         cornerRadius: cornerRadius,
     });
     block.rectobject = rect;
+
+    if (block.blocktype == 2 || block.blocktype == 3) {
+        let bottomclamprect = new Konva.Rect({
+            fill: COLORS[block.color],
+            stroke: HIGHLIGHT_COLORS[block.color],
+            strokeWidth: STROKE_WEIGHT,
+            cornerRadius: cornerRadius,
+        });
+        block.bottomclampobject = bottomclamprect;
+        let sideclamprect = new Konva.Rect({
+            fill: COLORS[block.color],
+            stroke: HIGHLIGHT_COLORS[block.color],
+            strokeWidth: STROKE_WEIGHT,
+        });
+        block.sideclampobject = sideclamprect;
+
+        if (block.blocktype == 3) {
+            let middleclamprect = new Konva.Rect({
+            fill: COLORS[block.color],
+            stroke: HIGHLIGHT_COLORS[block.color],
+            strokeWidth: STROKE_WEIGHT,
+        });
+        block.middleclampobject = middleclamprect;
+        }
+    }
     // can (and should ) be optimized
     let blockgroup = new Konva.Group({draggable: true});
     block.groupobject = blockgroup;
@@ -1005,6 +1214,14 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
     //block.updateLocation();
 
     blockgroup.add(block.rectobject);
+
+    if (block.blocktype == 2 || block.blocktype == 3) {
+        blockgroup.add(block.bottomclampobject);
+        blockgroup.add(block.sideclampobject);
+        if (block.blocktype == 3) {
+            blockgroup.add(block.middleclampobject);
+        }
+    }
 
     for (const argbox of block.argboxobjects){
         argbox.blockobject = block;
@@ -1017,6 +1234,8 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
 
     blockgroup.add(block.top_contact_rect);
     blockgroup.add(block.bottom_contact_rect);
+    blockgroup.add(block.top_clamp_contact_rect);
+    blockgroup.add(block.bottom_clamp_contact_rect);
 
     blockgroup.block_stack = block.block_stack;
     blockgroup.block_id = block.id;
@@ -1046,31 +1265,74 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
             block2.updateLocation();
 
             // move stack to front layer!
-            block2.groupobject.zIndex(blocks.length - stacklength + b2 + 3);
+            block2.groupobject.zIndex(num_of_blocks + 2);
         }
 
         findHoveredBlock();
-        for (block of blocks) {
+        for (const [id, block] of Object.entries(blocks)) {
             block.updateSize();
         }
+        updateBlocks();
     });
 
     blockgroup.on('dragend', function () {
         // iterate to find location of block in stack?
 
-        if (this.x() < 400 * SCALE) {
-            stacks.splice(dragged_stack,1);
-            // delete blocks
-        }
 
+        // duplicate library blocks
         if (blocks[this.block_id].library_block) {
             let lib_block = blocks[this.block_id];
             lib_block.library_block = false;
-            stacks.push([[blocks.length, lib_block.blockname, [-1, -1, -1, -1, -1], []]]);
-            fullyCreateBlock(lib_block.block_name, blocks.length, [], lib_block.prev_x, lib_block.prev_y, true);
-            updateBlocks();
-            // create a new block
+            let new_block_id = 0;
+            while (new_block_id in blocks) {
+                new_block_id += 1;
+            }
+            let new_block_name = lib_block.block_name;
+            stacks.push([[new_block_id, new_block_name, [-1, -1, -1, -1, -1], [], [], true]]);
+            stacks[this.block_stack][0][5] = false;
 
+            //creates new library block at location it just once was
+            fullyCreateBlock(new_block_name, new_block_id, [], lib_block.prev_x, lib_block.prev_y, true);
+            
+            updateBlocks();
+            updateShaderCode();
+            // create a new block
+        }
+
+        // separate off from within clamp
+
+        if (this.clamp_parent != -1 && this.clamp_parent != null) {
+            console.log(this.clamp_parent);
+            blocks[this.clamp_parent].clamped_block = -1;
+            this.clamp_parent = -1
+        }
+
+        // delete trashed blocks
+        if (this.x() < 400 * SCALE) {
+
+            let num_blocks_deleted = stacks[dragged_stack].length;
+
+            num_of_blocks -= num_blocks_deleted;
+
+            for (let stackitem of stacks[dragged_stack]) {
+                let block_id = stackitem[0];
+                blocks[block_id].groupobject.destroy();
+                delete blocks[block_id];
+            }
+
+            if (stack_being_run == dragged_stack) {
+                stack_being_run = -1
+                makeShader(DEFAULT_SHADER_CODE);
+            }
+
+            stacks.splice(dragged_stack,1);
+
+
+            // delete blocks
+
+            updateBlocks();
+            updateShaderCode();
+            return;
         }
 
         blocks[this.block_id].dragged = false;
@@ -1086,21 +1348,62 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
             }
         }
         let block_inserted = stacks[dragged_stack][0][0];
-        if (blocks[block_inserted].blocktype == 0) {return}
+        if (blocks[block_inserted].blocktype == 1) {
+            // inserting arg blocks
+            if (insert_block != -1) {
 
-        if (insert_block != -1) {
+                // change the child parameter in the stack
+                stacks[insert_stack][insert_block][2][hovered_arg] = stacks[dragged_stack][0][0];
 
-            // change the child parameter in the stack
-            stacks[insert_stack][insert_block][2][hovered_arg] = stacks[dragged_stack][0][0];
+                let first_part = stacks[insert_stack].slice(0, insert_block+1);
+                let middle_part = stacks[dragged_stack];
+                let last_part = stacks[insert_stack].slice(insert_block + 1);
+                let new_stack = first_part.concat(middle_part).concat(last_part);
+                stacks[insert_stack] = new_stack;
+                stacks.splice(dragged_stack,1);
+                updateBlocks();
+                updateShaderCode();
+            }
+        } else {
 
-            let first_part = stacks[insert_stack].slice(0, insert_block+1);
-            let middle_part = stacks[dragged_stack];
-            let last_part = stacks[insert_stack].slice(insert_block + 1);
-            let new_stack = first_part.concat(middle_part).concat(last_part);
-            stacks[insert_stack] = new_stack;
-            stacks.splice(dragged_stack,1);
-            updateBlocks();
+            // contact insertion
+
+            if (hovered_block != -1 && hovered_contact > 0) {
+
+                // increase insert_block until no more children
+                let all_children = stacks[insert_stack][insert_block][2].slice();
+                all_children.push(insert_block)
+
+                if (hovered_contact == 1 || hovered_contact == 2) {
+                    if (hovered_contact == 2) {
+                        while (!all_children.includes(stacks[insert_stack][insert_block]) && insert_block < stacks[insert_stack].length - 1) {
+                            insert_block += 1;
+                            all_children = all_children.concat(stacks[insert_stack][insert_block][2]);
+                        }
+                    } else {
+                        insert_block = insert_block -1;
+                    }
+
+                    let first_part = stacks[insert_stack].slice(0, insert_block+1);
+                    let middle_part = stacks[dragged_stack];
+                    let last_part = stacks[insert_stack].slice(insert_block + 1);
+                    let new_stack = first_part.concat(middle_part).concat(last_part);
+                    stacks[insert_stack] = new_stack;
+                    stacks.splice(dragged_stack, 1);
+                } else {
+                    if (hovered_contact == 3) {
+                        let parent = stacks[insert_stack][insert_block][0];
+                        let child = stacks[dragged_stack][0][0];
+                        blocks[parent].clamped_block = child;
+                        blocks[child].clamp_parent = parent;
+                    }
+                }
+            }
         }
+        dragged_stack = -1;
+
+        updateBlocks();
+        updateShaderCode();
     });
 
     blockgroup.on('dragstart', function () {
@@ -1139,6 +1442,10 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
 
                     // splice out the removed substack.
 
+                    if (stack_being_run == s) {
+                        stack_being_run = stacks.length - 1;
+                    }
+
                     // replace instances of 
                     let oldstack = stacks[s].slice(0, b);
                     let newstack = stacks[s].slice(b, b2);
@@ -1172,6 +1479,7 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
                     }
 
                     updateBlocks();
+                    updateShaderCode();
 
                     return;
                 }
@@ -1191,11 +1499,9 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
                 stack_being_run = this.block_stack;
                 updateBlocks();
                 updateShaderCode();
-                console.log(shader_code);
-                makeShader(shader_code);
                 for (i = 0; i < stacks[stack_being_run].length; i++) {
                     let block_to_run = blocks[stacks[stack_being_run][i][0]];
-                    if (block_to_run.blocktype == 0) {
+                    if (block_to_run.blocktype != 1) {
                         block_to_run.eval();
                     }
                 }
@@ -1206,7 +1512,7 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
             let arg = -1;
             let hovered_text = 0
             for (let i = 0; i < block.skeleton.length; i++){
-                if (block.skeleton[i] == 1) {
+                if (block.skeleton[i] != 0) {
                     arg += 1;
                     if (arg == hovered_arg) {
                         hovered_text = i;
@@ -1220,21 +1526,31 @@ function fullyCreateBlock(blockname, id, textArgs, x, y, library_block=false) {
     });
 
     layer.add(blockgroup);
-    blockgroup.zIndex(block.id+3);
+    blockgroup.zIndex(num_of_blocks+2);
 
 }
 
+function getBlock(id) {
+    // let block_location = 0;
+    // while (blocks[block_location].id != id && block_location < blocks.length) {
+    //     block_location += 1;
+    // }
+    return blocks[id];
+}
+
 function updateBlocks () {
+    //findMouseOveredBlock();
     for (let s = 0; s < stacks.length; s++){
         let prev = null;
         for (let b = 0; b < stacks[s].length; b++){
-            let updated_block = blocks[stacks[s][b][0]];
+            let block_id = stacks[s][b][0];
+            let updated_block = getBlock(block_id);
 
             // update 'next' values
             updated_block.next = null;
-            if (updated_block.blocktype == 0) {
+            if (updated_block.blocktype != 1) {
                 if (prev != null) {
-                    blocks[prev].next = stacks[s][b][0];
+                    getBlock(prev).next = stacks[s][b][0];
                 }
                 prev = stacks[s][b][0];
             }
@@ -1248,6 +1564,14 @@ function updateBlocks () {
             updated_block.updateLocation();
         }
     }
+
+    for (let s = 0; s < stacks.length; s++){
+        for (let b = 0; b < stacks[s].length; b++){
+            blocks[stacks[s][b][0]].updateLocation();
+        }
+    }
+
+    //print_stacks();
 }
 
 function findMouseOveredBlock () {
@@ -1283,10 +1607,10 @@ function findMouseOveredBlock () {
 
                     let skeleton = h_block_obj.skeleton;
                     let prosp_hovered_arg = -1
-                    if (skeleton[textbox] == 1) {
+                    if (skeleton[textbox] != 0) {
                         prosp_hovered_arg = 0;
                         for (let i = 0; i < textbox; i++) {
-                            if (skeleton[i] == 1) {
+                            if (skeleton[i] != 0) {
                                 prosp_hovered_arg += 1;
                             }
                         }
@@ -1329,7 +1653,7 @@ function findHoveredBlock () {
                 if (distX > 0 && 
                     distX < block.width &&
                     distY > 0 &&
-                    distY < block.height) {
+                    distY < block.height_with_clamp) {
 
                     let prosp_hovered_block = stackitem[0];
                     // found the block, now time to find the nearest argument.
@@ -1345,10 +1669,10 @@ function findHoveredBlock () {
 
                     let skeleton = h_block_obj.skeleton;
                     let prosp_hovered_arg = -1
-                    if (skeleton[textbox] == 1) {
+                    if (skeleton[textbox] != 0) {
                         prosp_hovered_arg = 0;
                         for (let i = 0; i < textbox; i++) {
-                            if (skeleton[i] == 1) {
+                            if (skeleton[i] != 0) {
                                 prosp_hovered_arg += 1;
                             }
                         }
@@ -1363,20 +1687,31 @@ function findHoveredBlock () {
 
                 if (blocks[stacks[dragged_stack][0][0]].blocktype != 1) { 
 
-                if (distX > 0 && distX < CONTACT_WIDTH * SCALE) {
-                    
-                    if (distY > -dragged_block.height - CONTACT_HEIGHT * SCALE &&
-                            distY < -dragged_block.height) {
+                    if (distX > 0 && distX < CONTACT_WIDTH * SCALE) {
+
+                        if (distY > block.height_with_clamp &&
+                            distY < block.height_with_clamp+CONTACT_HEIGHT * SCALE) {
+
+                            hovered_block = stackitem[0];
+                            hovered_contact = 2;
+                        }
+                        if (distY > -dragged_block.height_with_clamp - CONTACT_HEIGHT * SCALE &&
+                            distY < -dragged_block.height_with_clamp) {
 
                             hovered_block = stackitem[0];
                             hovered_contact = 1;
                         }
+                    }
+                }
+
+                if (block.blocktype == 2 || block.blocktype == 3) { 
+                    if (distX > CLAMP_WIDTH * SCALE && distX < (CONTACT_WIDTH + CLAMP_WIDTH) * SCALE) { 
 
                         if (distY > block.height &&
                             distY < block.height+CONTACT_HEIGHT * SCALE) {
 
                             hovered_block = stackitem[0];
-                            hovered_contact = 2;
+                            hovered_contact = 3;
                         }
                     }
                 }
@@ -1384,6 +1719,26 @@ function findHoveredBlock () {
         }
     }
 }
+
+function print_stacks () {
+    console.log(stacks);
+    let string = "";
+    for (let s = 0; s < stacks.length; s ++) {
+        for (let b = 0; b < stacks[s].length; b ++) {
+            string = string.concat(stacks[s][b][0]);
+            string += " ";
+            string = string.concat(stacks[s][b][1]);
+            string += " ";
+            string = string.concat(blocks[stacks[s][b][0]].clamped_block);
+            string += " ";
+            string = string.concat(blocks[stacks[s][b][0]].clamp_parent);
+            string += "\n";
+        }
+        string += "\n";
+    }
+    console.log(string);
+}
+
 
 function updateShaderCodeAux (block_id) {
     let code = "";
@@ -1410,11 +1765,18 @@ function updateShaderCode () {
     shader_code = "";
 
     let s = stack_being_run;
-    for (let b = 0; b < stacks[s].length; b++) {
-        let block_id = stacks[s][b][0];
-        if (blocks[block_id].blocktype == 0) {
-            shader_code = shader_code.concat(updateShaderCodeAux(block_id));
+    if (stack_being_run > -1) {
+        for (let b = 0; b < stacks[s].length; b++) {
+            let block_id = stacks[s][b][0];
+            if (blocks[block_id].blocktype != 1) {
+                shader_code = shader_code.concat(updateShaderCodeAux(block_id));
+            }
         }
+
+        console.log(shader_code);
+        makeShader(shader_code);
+    } else {
+        makeShader(DEFAULT_SHADER_CODE);
     }
 }
 
@@ -1423,7 +1785,7 @@ for (let s = 0; s < stacks.length; s++) {
         let stackitem = stacks[s][b];
         let x = stackitem[4] == null ? 0 : stackitem[4][0];
         let y = stackitem[4] == null ? 0 : stackitem[4][1];
-        let library_block = s >= stacks.length - BLOCK_LIBRARY.length;
+        let library_block = stackitem[5] != null;
         fullyCreateBlock(stackitem[1], stackitem[0], stackitem[3], x, y, library_block);
     }
 }
