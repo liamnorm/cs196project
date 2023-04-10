@@ -94,7 +94,7 @@ var stacks = [
 ]
 
 //const BLOCK_LIBRARY = ["print", "color", "colorvalue", "red", "green", "blue", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
-const BLOCK_LIBRARY = ["print", "if", "colorrgb", "color", "red", "green", "blue", "gradient", "checker", "add", "subtract", "multiply", "divide", "x", "y", "timer"];
+const BLOCK_LIBRARY = ["print", "if", "ifelse", "colorrgb", "color", "red", "green", "blue", "gradient", "checker", "add", "subtract", "multiply", "divide", "x", "y", "timer", "equal", "lessthan", "greaterthan"];
 
 
 class Block {
@@ -115,7 +115,21 @@ class Block {
         }
 
         // color block when running code
-        if (this.block_stack == stack_being_run) {
+
+        this.highlighted = this.block_stack == stack_being_run;
+
+        if (this.clamp_parent != -1) {
+            if (blocks[this.clamp_parent].highlighted) {
+                this.highlighted = true;
+            }
+        }
+        if (this.clamp_parent2 != -1) {
+            if (blocks[this.clamp_parent2].highlighted) {
+                this.highlighted = true;
+            }
+        }
+
+        if (this.highlighted) {
             this.rectobject.stroke('yellow');
             if (this.blocktype == 2 || this.blocktype == 3) {
                 this.bottomclampobject.stroke('yellow');
@@ -139,6 +153,9 @@ class Block {
         let argnum = 0;
         for (let i = 0; i < this.skeleton.length; i++) {
             this.argboxobjects[i].stroke(HIGHLIGHT_COLORS[this.color]);
+            if (this.skeleton[i] == 2) {
+                this.argboxobjects[i].fill(string_to_color(this.text[i]));
+            }
             if (hovered_block == this.id && stacks[dragged_stack] != null) {
                     if (blocks[stacks[dragged_stack][0][0]].blocktype == 1) {
                         if (argnum == hovered_arg) {
@@ -190,7 +207,7 @@ class Block {
                 this.height_with_first_clamp = this.height_with_clamp;
             if (this.blocktype == 3) {
                 this.height_with_clamp = this.height_with_first_clamp;
-                if (this.clamped_block != -1) {
+                if (this.clamped_block2 != -1) {
                     this.height_with_clamp += stackheight(blocks[this.clamped_block2].block_stack);
                 } else {
                     this.height_with_clamp += EMPTY_CLAMP_HEIGHT * SCALE;
@@ -252,6 +269,11 @@ class Block {
                 let parent_block = blocks[this.clamp_parent];
                 this.x = parent_block.x + CLAMP_WIDTH * SCALE;
                 this.y = parent_block.y + parent_block.height;
+            }
+            else if (this.clamp_parent2 != -1) {
+                let parent_block2 = blocks[this.clamp_parent2];
+                this.x = parent_block2.x + CLAMP_WIDTH * SCALE;
+                this.y = parent_block2.y + parent_block2.height_with_first_clamp;
             }
         }
 
@@ -359,6 +381,8 @@ class Block {
         this.height_with_clamp = 0;
         this.height_with_first_clamp = 0;
         this.clamp_parent = -1;
+        this.clamp_parent2 = -1;
+        this.highlighted = false;
     }
     
     skeleton = [0]
@@ -411,15 +435,15 @@ class ColorBlock extends StackBlock {
     block_name = "color";
     color = COLORING_COLOR;
     skeleton = [0,2];
-    text = ["set color to", "(0,1,0)"];
-    shadercode_template = ["fragColor =", ");\n"];
+    text = ["set color to", "#00ff00"];
+    shadercode_template = ["fragColor = ", ";\n; r=fragColor.r; g=fragColor.g; b = fragColor.b;"];
 }
 
 class GradientBlock extends StackBlock {
     block_name = "gradient";
     color = COLORING_COLOR;
     skeleton = [0,2,0,2];
-    text = ["gradient from ", "(0,1,0)", "to", "(0,1,0)"];
+    text = ["gradient from ", "#ffff00", "to", "#00ffff"];
     shadercode_template = ["r = float(", "); g = float(", "); b = float(", ");\n"];
 }
 class CheckerBlock extends DoubleClampBlock {
@@ -629,7 +653,7 @@ class EqualBlock extends ArgBlock {
     color = OPERATION_COLOR
     skeleton = [1, 0, 1, 0];
     text = [" ", "=", " ", "?"];
-    shadercode_template = ["(", " == ", ")"];
+    shadercode_template = ["(float(", ") == float(", "))"];
 
     eval () {
         this.prepArgs();
@@ -642,7 +666,7 @@ class LessThanBlock extends ArgBlock {
     color = OPERATION_COLOR
     skeleton = [1, 0, 1, 0];
     text = [" ", "<", " ", "?"];
-    shadercode_template = ["(", " < ", ")"];
+    shadercode_template = ["(float(", ") < float(", "))"];
 
     eval () {
         this.prepArgs();
@@ -654,7 +678,7 @@ class GreaterThanBlock extends ArgBlock {
     color = OPERATION_COLOR
     skeleton = [1, 0, 1, 0];
     text = [" ", ">", " ", "?"];
-    shadercode_template = ["(", " > ", ")"];
+    shadercode_template = ["(float(", ") > float(", "))"];
 
     eval () {
         this.prepArgs();
@@ -725,12 +749,26 @@ class IfBlock extends ClampBlock {
     block_name = "if";
     color = FLOW_COLOR;
     skeleton = [0, 1, 0];
-    text = ["if", "false", "then"];
-    shadercode_template = ["if (", ") {", "}"];
+    text = ["if", "true", "then"];
+    shadercode_template = ["if (_bool(", "))"];
 
     eval () {
         this.prepArgs();
-        if (this.args[0]) {blocks[this.clamped_block][0].eval()} else {this.next.eval()}; 
+        if (this.args[0]) {blocks[this.clamped_block].eval()} else {}; 
+        return null;
+    }
+}
+
+class IfElseBlock extends DoubleClampBlock {
+    block_name = "ifelse";
+    color = FLOW_COLOR;
+    skeleton = [0, 1, 0];
+    text = ["if", "true", "then, else"];
+    shadercode_template = ["if (_bool(", "))"];
+
+    eval () {
+        this.prepArgs();
+        if (this.args[0]) {blocks[this.clamped_block].eval()} else {blocks[this.clamped_block2].eval()}; 
         return null;
     }
 }
@@ -825,12 +863,26 @@ for (let block_name of BLOCK_LIBRARY) {
 //     }
 // }
 
+function string_to_color(string) {
+    return string;
+}
+
+function HEXToVBColor(rrggbb) {
+    let r = (parseInt("0x" + rrggbb.substr(0, 2), 16) / 255).toString();
+    let g = (parseInt("0x" + rrggbb.substr(2, 2), 16) / 255).toString();
+    let b = (parseInt("0x" + rrggbb.substr(4, 2), 16) / 255).toString();
+    console.log(g);
+    return r + ", " + g + ", " + b + "";
+}
+
 function stackheight (s) {
     let height = 0;
     for (let b = 0; b < stacks[s].length; b++) {
         let block_id = stacks[s][b][0];
         blocks[block_id].updateSize();
-        height += blocks[block_id].height_with_clamp;
+        if (blocks[block_id].blocktype == 0) {
+            height += blocks[block_id].height_with_clamp;
+        }
     }
     return height;
 }
@@ -869,6 +921,7 @@ function blockObjectFromName(block_name) {
         case "true": b = new TrueBlock(); break;
         case "false": b = new FalseBlock(); break;
         case "if": b = new IfBlock(); break;
+        case "ifelse": b = new IfElseBlock(); break;
         case "equal": b = new EqualBlock(); break;
         case "lessthan": b = new LessThanBlock(); break;
         case "greaterthan": b = new GreaterThanBlock(); break;
@@ -1110,7 +1163,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
         let opacity = 0;
         if (block.skeleton[t] != 0) {
             if (block.skeleton[t] == 2)
-                {argfill = 'lime';} 
+                {argfill = string_to_color(block.text[t]);} 
             else
                 {argfill = 'white';}
             argweight = STROKE_WEIGHT;
@@ -1213,15 +1266,15 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
     //block.updateSize();
     //block.updateLocation();
 
-    blockgroup.add(block.rectobject);
-
     if (block.blocktype == 2 || block.blocktype == 3) {
-        blockgroup.add(block.bottomclampobject);
         blockgroup.add(block.sideclampobject);
+        blockgroup.add(block.bottomclampobject);
         if (block.blocktype == 3) {
             blockgroup.add(block.middleclampobject);
         }
     }
+
+    blockgroup.add(block.rectobject);
 
     for (const argbox of block.argboxobjects){
         argbox.blockobject = block;
@@ -1296,6 +1349,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
             
             updateBlocks();
             updateShaderCode();
+
             // create a new block
         }
 
@@ -1307,25 +1361,45 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
             this.clamp_parent = -1
         }
 
+        if (this.clamp_parent2 != -1 && this.clamp_parent2 != null) {
+            console.log(this.clamp_parent2);
+            blocks[this.clamp_parent2].clamped_block2 = -1;
+            this.clamp_parent2 = -1
+        }
+
         // delete trashed blocks
         if (this.x() < 400 * SCALE) {
 
-            let num_blocks_deleted = stacks[dragged_stack].length;
+            function deleteStack (stack) {
 
-            num_of_blocks -= num_blocks_deleted;
+                let num_blocks_deleted = stacks[stack].length;
 
-            for (let stackitem of stacks[dragged_stack]) {
-                let block_id = stackitem[0];
-                blocks[block_id].groupobject.destroy();
-                delete blocks[block_id];
+                num_of_blocks -= num_blocks_deleted;
+                for (let stackitem of stacks[stack]) {
+                    let block_id = stackitem[0];
+                    if (blocks[block_id].clamped_block != -1) {
+                        let child = blocks[block_id].clamped_block;
+                        let substack = blocks[child].block_stack;
+                        deleteStack(substack);
+                    }
+                    if (blocks[block_id].clamped_block2 != -1) {
+                        let child = blocks[block_id].clamped_block2;
+                        let substack = blocks[child].block_stack;
+                        deleteStack(substack);
+                    }
+
+                    blocks[block_id].groupobject.destroy();
+                    delete blocks[block_id];
+                }
+                stacks.splice(stack,1);
             }
+
+            deleteStack(dragged_stack);
 
             if (stack_being_run == dragged_stack) {
                 stack_being_run = -1
                 makeShader(DEFAULT_SHADER_CODE);
             }
-
-            stacks.splice(dragged_stack,1);
 
 
             // delete blocks
@@ -1333,6 +1407,15 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
             updateBlocks();
             updateShaderCode();
             return;
+        }
+
+        if (this.x() > window.innerWidth - GL_WINDOW_WIDTH - 20 ||
+            this.y() < 0 ||
+            this.y() > window.innerHeight) {
+            let block = blocks[this.block_id];
+            block.x = block.prev_x;
+            block.y = block.prev_y;
+
         }
 
         blocks[this.block_id].dragged = false;
@@ -1396,6 +1479,11 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
                         let child = stacks[dragged_stack][0][0];
                         blocks[parent].clamped_block = child;
                         blocks[child].clamp_parent = parent;
+                    } else if (hovered_contact == 4) {
+                        let parent = stacks[insert_stack][insert_block][0];
+                        let child = stacks[dragged_stack][0][0];
+                        blocks[parent].clamped_block2 = child;
+                        blocks[child].clamp_parent2 = parent;
                     }
                 }
             }
@@ -1702,16 +1790,24 @@ function findHoveredBlock () {
                             hovered_contact = 1;
                         }
                     }
-                }
+                    if (block.blocktype == 2 || block.blocktype == 3) { 
+                        if (distX > CLAMP_WIDTH * SCALE && distX < (CONTACT_WIDTH + CLAMP_WIDTH) * SCALE) { 
+    
+                            if (distY > block.height &&
+                                distY < block.height+CONTACT_HEIGHT * SCALE) {
+    
+                                hovered_block = stackitem[0];
+                                hovered_contact = 3;
+                            }
 
-                if (block.blocktype == 2 || block.blocktype == 3) { 
-                    if (distX > CLAMP_WIDTH * SCALE && distX < (CONTACT_WIDTH + CLAMP_WIDTH) * SCALE) { 
-
-                        if (distY > block.height &&
-                            distY < block.height+CONTACT_HEIGHT * SCALE) {
-
-                            hovered_block = stackitem[0];
-                            hovered_contact = 3;
+                            if (block.blocktype == 3) { 
+                                if (distY > block.height_with_first_clamp &&
+                                    distY < block.height_with_first_clamp+CONTACT_HEIGHT * SCALE) {
+        
+                                    hovered_block = stackitem[0];
+                                    hovered_contact = 4;
+                                }
+                            }
                         }
                     }
                 }
@@ -1732,6 +1828,10 @@ function print_stacks () {
             string = string.concat(blocks[stacks[s][b][0]].clamped_block);
             string += " ";
             string = string.concat(blocks[stacks[s][b][0]].clamp_parent);
+            string += " ";
+            string = string.concat(blocks[stacks[s][b][0]].clamped_block2);
+            string += " ";
+            string = string.concat(blocks[stacks[s][b][0]].clamp_parent2);
             string += "\n";
         }
         string += "\n";
@@ -1741,6 +1841,9 @@ function print_stacks () {
 
 
 function updateShaderCodeAux (block_id) {
+    if (block_id == -1) {
+        return "";
+    }
     let code = "";
     
     let block = blocks[block_id];
@@ -1753,10 +1856,53 @@ function updateShaderCodeAux (block_id) {
             if (child != null && child != -1) {
                 code = code.concat(updateShaderCodeAux(block.children[i]));
             } else {
-                code = code.concat(block.textArgs[i]);
+                let text = block.textArgs[i];
+                switch (text) {
+                    case "red":
+                        text = "vec4(1,0,0,0)"; break;
+                    case "yellow":
+                        text = "vec4(1,1,0,0)"; break;
+                    case "lime":
+                        text = "vec4(0,1,0,0)"; break;
+                    case "cyan":
+                        text = "vec4(0,1,1,0)"; break;
+                    case "blue":
+                        text = "vec4(0,0,1,0)"; break;
+                    case "magenta":
+                        text = "vec4(1,0,1,0)"; break;
+                    case "white":
+                        text = "vec4(1,1,1,0)"; break;
+                    case "black":
+                        text = "vec4(0,0,0,0)"; break;
+                    case "":
+                    case " ":
+                        text = "0.0"; break;
+                    default:
+                        if (text[0] == "#") {
+                            text = "vec4(" + HEXToVBColor(text.substr(1)) + ", 0)"; break;
+                        }
+                }
+                code = code.concat(text);
             }
         }
     }
+    if (block.blocktype == 2 || block.blocktype == 3) {
+        code = code.concat("\n{\n");
+        code = code.concat(updateShaderCodeAux(block.clamped_block));
+        code = code.concat("\n}\n");
+    }
+
+    if (block.blocktype == 3) {
+        code = code.concat("\nelse\n")
+        code = code.concat("\n{\n");
+        code = code.concat(updateShaderCodeAux(block.clamped_block2));
+        code = code.concat("\n}\n");
+    }
+
+    if (block.next != null) {
+        code = code.concat(updateShaderCodeAux(block.next));
+    }
+
     return code;
 }
 
@@ -1766,12 +1912,14 @@ function updateShaderCode () {
 
     let s = stack_being_run;
     if (stack_being_run > -1) {
-        for (let b = 0; b < stacks[s].length; b++) {
-            let block_id = stacks[s][b][0];
-            if (blocks[block_id].blocktype != 1) {
-                shader_code = shader_code.concat(updateShaderCodeAux(block_id));
-            }
-        }
+        let block_id = stacks[s][0][0];
+        shader_code = updateShaderCodeAux(block_id);
+        // for (let b = 0; b < stacks[s].length; b++) {
+        //     let block_id = stacks[s][b][0];
+        //     if (blocks[block_id].blocktype != 1) {
+        //         shader_code = shader_code.concat(updateShaderCodeAux(block_id));
+        //     }
+        // }
 
         console.log(shader_code);
         makeShader(shader_code);
@@ -1908,6 +2056,8 @@ float _cos(float x) {return cos(x);}
 
 float _tan(int x) {return tan(float(x));}
 float _tan(float x) {return tan(x);}
+
+bool _bool(bool x) {return x;}
 
 void main() {
 float r = 0.;
