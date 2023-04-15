@@ -23,6 +23,9 @@ const STROKE_WEIGHT = 2;
 const CONTACT_WIDTH = 100;
 const CONTACT_HEIGHT = 20;
 
+const CAP_WIDTH = 100;
+const CAP_HEIGHT = 20;
+
 const CLAMP_WIDTH = 20;
 const CLAMP_HEIGHT = 20;
 
@@ -91,10 +94,11 @@ var stacks = [
     // [4, "divide", [5, -1], ["0", "10"]],
     // [5, "timer", [], []]
     // ]
+    [[0, "run", [-1, -1, -1, -1], [-1, -1, -1, -1], [400, 200]]]
 ]
 
 //const BLOCK_LIBRARY = ["print", "color", "colorvalue", "red", "green", "blue", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
-const BLOCK_LIBRARY = ["print", "if", "ifelse", "colorrgb", "color", "red", "green", "blue", "gradient", "checker", "add", "subtract", "multiply", "divide", "x", "y", "timer", "equal", "lessthan", "greaterthan"];
+const BLOCK_LIBRARY = ["run", "colorrgb", "color", "gradient", "checker", "shift", "setred", "setgreen", "setblue", "red", "green", "blue", "add", "subtract", "multiply", "divide", "x", "y", "centerdistance", "timer", "mousex", "mousey", "equal", "lessthan", "greaterthan"];
 
 
 class Block {
@@ -131,6 +135,9 @@ class Block {
 
         if (this.highlighted) {
             this.rectobject.stroke('yellow');
+            if (this.cap) {
+                this.capobject.stroke('yellow');
+            }
             if (this.blocktype == 2 || this.blocktype == 3) {
                 this.bottomclampobject.stroke('yellow');
                 this.sideclampobject.stroke('yellow');
@@ -140,6 +147,9 @@ class Block {
             }
         } else {
             this.rectobject.stroke(HIGHLIGHT_COLORS[this.color]);
+            if (this.cap) {
+                this.capobject.stroke(HIGHLIGHT_COLORS[this.color]);
+            }
             if (this.blocktype == 2 || this.blocktype == 3) {
                 this.bottomclampobject.stroke(HIGHLIGHT_COLORS[this.color]);
                 this.sideclampobject.stroke(HIGHLIGHT_COLORS[this.color]);
@@ -220,6 +230,10 @@ class Block {
         }
         this.rectobject.width(this.width);
         this.rectobject.height(this.height);
+        if (this.cap) {
+            this.capobject.width(CAP_WIDTH * SCALE);
+            this.capobject.height(CAP_HEIGHT * SCALE);
+        }
         if (this.blocktype == 2 || this.blocktype == 3) {
             this.bottomclampobject.width(this.width);
             this.bottomclampobject.height(CLAMP_HEIGHT * SCALE);
@@ -321,6 +335,11 @@ class Block {
             textx += this.textwidths[a] + 2 * MARGIN_X * SCALE;
         }
 
+        if (this.cap) {
+            this.capobject.x(0);
+            this.capobject.y(0- CAP_HEIGHT * SCALE);
+        }
+
         this.groupobject.x(this.x);
         this.groupobject.y(this.y);
 
@@ -347,6 +366,8 @@ class Block {
 
     blocktype = 0;
 
+    cap = false;
+
     shadercode_template = [];
 
     top_contact_rect = null;
@@ -367,6 +388,7 @@ class Block {
         this.textobjects = [];
         this.argboxobjects = [];
         this.rectobject = null;
+        this.capobject = null;
         this.next = null;
         this.dragged = false;
         this.groupobject = null;
@@ -405,10 +427,34 @@ class BoolArgBlock extends ArgBlock {
 
 class ClampBlock extends StackBlock {
     blocktype = 2;
+
+    doNext() {
+        blocks[this.next].eval();
+    }
 }
 
 class DoubleClampBlock extends StackBlock {
     blocktype = 3;
+
+    doNext() {
+        blocks[this.next].eval();
+    }
+}
+
+class CapBlock extends StackBlock {
+    cap = true;
+}
+
+class RunBlock extends CapBlock {
+    block_name = "run";
+    color = PRINT_COLOR;
+    skeleton = [0];
+    text = ["run this code:"];
+    shadercode_template = [""];
+
+    eval () {
+        return null;
+    }
 }
 class PrintBlock extends StackBlock {
     block_name = "print";
@@ -444,15 +490,35 @@ class GradientBlock extends StackBlock {
     color = COLORING_COLOR;
     skeleton = [0,2,0,2];
     text = ["gradient from ", "#ffff00", "to", "#00ffff"];
-    shadercode_template = ["r = float(", "); g = float(", "); b = float(", ");\n"];
+    shadercode_template = [
+        "vec4 gradColor1 = ", 
+        ";\n; vec4 gradColor2 = ", 
+        `;\n; 
+            r = gradColor2.r * coord.x + gradColor1.r * (1.0 - coord.x); 
+            g = gradColor2.g * coord.x + gradColor1.g * (1.0 - coord.x); 
+            b = gradColor2.b * coord.x + gradColor1.b * (1.0 - coord.x);` 
+    ];
 }
 class CheckerBlock extends DoubleClampBlock {
     block_name = "checker";
     color = COLORING_COLOR;
     skeleton = [0,1,0,1];
     text = ["checker ", "4", "by", "4"];
+
     //shadercode_template = ["fragColor = vec4(", ", ", ", ", ", ", ");\n"];
-    shadercode_template = ["r = float(", "); g = float(", "); b = float(", ");\n"];
+    shadercode_template = ["if ((int(coord.x * float(", ")) % 2 == 0) != (int(coord.y * float(", ")) % 2 == 0))"];
+}
+
+class ShiftBlock extends StackBlock {
+    block_name = "shift";
+    color = COLORING_COLOR;
+    skeleton = [0,1,0,1];
+    text = ["shift x ", "0.2", " y ", "0"];
+    shadercode_template = [
+        "coord.x += float(", 
+        ");\n coord.y += float(", 
+        ");\n coord.x = coord.x - floor(coord.x); coord.y = coord.y - floor(coord.y);"
+    ];
 }
 class ColorValueBlock extends ArgBlock {
     block_name = "colorvalue";
@@ -476,6 +542,13 @@ class YBlock extends ArgBlock {
     text = ["Y"];
     shadercode_template = ["coord.y"];
 }
+class CenterDistanceBlock extends ArgBlock {
+    block_name = "centerdistance";
+    color = VARYING_COLOR;
+    skeleton = [0];
+    text = ["distance to center"];
+    shadercode_template = ["sqrt((coord.x - 0.5) * (coord.x - 0.5) + (coord.y - 0.5) * (coord.y - 0.5))"];
+}
 class TimerBlock extends ArgBlock {
     block_name = "timer";
     color = VARYING_COLOR;
@@ -484,12 +557,34 @@ class TimerBlock extends ArgBlock {
     shadercode_template = ["frame"];
 }
 
-class RedBlock extends StackBlock {
-    block_name = "red";
+class MouseXBlock extends ArgBlock {
+    block_name = "mousex";
+    color = PRINT_COLOR;
+    skeleton = [0];
+    text = ["mouse X"];
+    shadercode_template = ["mouse.x"];
+}
+class MouseYBlock extends ArgBlock {
+    block_name = "mousey";
+    color = PRINT_COLOR;
+    skeleton = [0];
+    text = ["mouse Y"];
+    shadercode_template = ["mouse.y"];
+}
+
+class SetRedBlock extends StackBlock {
+    block_name = "setred";
     color = 0;
     skeleton = [0, 1];
     text = ["set red", "1"];
     shadercode_template = ["r = float(", ");\n"];
+}
+class RedBlock extends ArgBlock {
+    block_name = "red";
+    color = 0;
+    skeleton = [0];
+    text = ["red"];
+    shadercode_template = ["r"];
 }
 
 class OrangeBlock extends StackBlock {
@@ -508,20 +603,36 @@ class YellowBlock extends StackBlock {
     shadercode_template = ["yellow"];
 }
 
-class GreenBlock extends StackBlock {
-    block_name = "green";
+class SetGreenBlock extends StackBlock {
+    block_name = "setgreen";
     color = 4;
     skeleton = [0, 1];
     text = ["set green", "1"];
     shadercode_template = ["g = float(", ");\n"];
 }
 
-class BlueBlock extends StackBlock {
-    block_name = "blue";
+class GreenBlock extends ArgBlock {
+    block_name = "green";
+    color = 4;
+    skeleton = [0];
+    text = ["green"];
+    shadercode_template = ["g"];
+}
+
+class SetBlueBlock extends StackBlock {
+    block_name = "setblue";
     color = 6;
     skeleton = [0, 1];
     text = ["set blue", "1"];
     shadercode_template = ["b = float(", ");\n"];
+}
+
+class BlueBlock extends ArgBlock {
+    block_name = "blue";
+    color = 6;
+    skeleton = [0];
+    text = ["blue"];
+    shadercode_template = ["b"];
 }
 
 class PurpleBlock extends StackBlock {
@@ -871,7 +982,6 @@ function HEXToVBColor(rrggbb) {
     let r = (parseInt("0x" + rrggbb.substr(0, 2), 16) / 255).toString();
     let g = (parseInt("0x" + rrggbb.substr(2, 2), 16) / 255).toString();
     let b = (parseInt("0x" + rrggbb.substr(4, 2), 16) / 255).toString();
-    console.log(g);
     return r + ", " + g + ", " + b + "";
 }
 
@@ -890,15 +1000,20 @@ function stackheight (s) {
 function blockObjectFromName(block_name) {
     let b;
     switch (block_name) {
+        case "run": b = new RunBlock(); break;
         case "print": b = new PrintBlock(); break;
         case "colorrgb": b = new ColorRGBBlock(); break;
         case "color": b = new ColorBlock(); break;
         case "checker": b = new CheckerBlock(); break;
         case "gradient": b = new GradientBlock(); break;
+        case "shift": b = new ShiftBlock(); break;
         case "colorvalue": b = new ColorValueBlock(); break;
         case "x": b = new XBlock(); break;
         case "y": b = new YBlock(); break;
+        case "centerdistance": b = new CenterDistanceBlock(); break;
         case "timer": b = new TimerBlock(); break;
+        case "mousex": b = new MouseXBlock(); break;
+        case "mousey": b = new MouseYBlock(); break;
         case "red": b = new RedBlock(); break;
         case "orange": b = new OrangeBlock(); break;
         case "yellow": b = new YellowBlock(); break;
@@ -906,6 +1021,9 @@ function blockObjectFromName(block_name) {
         case "blue": b = new BlueBlock(); break;
         case "purple": b = new PurpleBlock(); break;
         case "pink": b = new PinkBlock(); break;
+        case "setred": b = new SetRedBlock(); break;
+        case "setgreen": b = new SetGreenBlock(); break;
+        case "setblue": b = new SetBlueBlock(); break;
         case "transparency": b = new TransparencyBlock(); break;
         case "add": b = new AddBlock(); break;
         case "subtract": b = new SubtractBlock(); break;
@@ -952,6 +1070,16 @@ function blockObjectFromName(block_name) {
 
 //     blocks.push(b);
 // }
+
+function run_main_stack() {
+    for (let s = 0; s < stacks.length; s++) {
+        let block = blocks[stacks[s][0][0]];
+        if (block.block_name == "run" && !stacks[s][0][5]) {
+            stack_being_run = s;
+            console.log(stack_being_run);
+        }
+    }
+}
 
 function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
     // don't modify the stacks!
@@ -1235,6 +1363,16 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
     });
     block.rectobject = rect;
 
+    if (block.cap) {
+        let cap = new Konva.Rect({
+            fill: COLORS[block.color],
+            stroke: HIGHLIGHT_COLORS[block.color],
+            strokeWidth: STROKE_WEIGHT,
+            cornerRadius: [r, r, 0, 0],
+        });
+        block.capobject = cap;
+    }
+
     if (block.blocktype == 2 || block.blocktype == 3) {
         let bottomclamprect = new Konva.Rect({
             fill: COLORS[block.color],
@@ -1272,6 +1410,10 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
         if (block.blocktype == 3) {
             blockgroup.add(block.middleclampobject);
         }
+    }
+
+    if (block.cap) {
+        blockgroup.add(block.capobject);
     }
 
     blockgroup.add(block.rectobject);
@@ -1356,13 +1498,11 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
         // separate off from within clamp
 
         if (this.clamp_parent != -1 && this.clamp_parent != null) {
-            console.log(this.clamp_parent);
             blocks[this.clamp_parent].clamped_block = -1;
             this.clamp_parent = -1
         }
 
         if (this.clamp_parent2 != -1 && this.clamp_parent2 != null) {
-            console.log(this.clamp_parent2);
             blocks[this.clamp_parent2].clamped_block2 = -1;
             this.clamp_parent2 = -1
         }
@@ -1398,6 +1538,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
 
             if (stack_being_run == dragged_stack) {
                 stack_being_run = -1
+                run_main_stack();
                 makeShader(DEFAULT_SHADER_CODE);
             }
 
@@ -1581,6 +1722,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
         if (hovered_arg == -1) {
             if (stack_being_run == this.block_stack) {
                 stack_being_run = -1
+                run_main_stack();
                 updateBlocks();
                 makeShader(DEFAULT_SHADER_CODE);
             } else {
@@ -1777,17 +1919,22 @@ function findHoveredBlock () {
 
                     if (distX > 0 && distX < CONTACT_WIDTH * SCALE) {
 
-                        if (distY > block.height_with_clamp &&
-                            distY < block.height_with_clamp+CONTACT_HEIGHT * SCALE) {
+                        if (!blocks[stacks[dragged_stack][0][0]].cap) {
+                            // bottom contact
+                            if (distY > block.height_with_clamp &&
+                                distY < block.height_with_clamp+CONTACT_HEIGHT * SCALE) {
 
-                            hovered_block = stackitem[0];
-                            hovered_contact = 2;
+                                hovered_block = stackitem[0];
+                                hovered_contact = 2;
+                            }
                         }
-                        if (distY > -dragged_block.height_with_clamp - CONTACT_HEIGHT * SCALE &&
-                            distY < -dragged_block.height_with_clamp) {
+                        if (!block.cap) {
+                            if (distY > -dragged_block.height_with_clamp - CONTACT_HEIGHT * SCALE &&
+                                distY < -dragged_block.height_with_clamp) {
 
-                            hovered_block = stackitem[0];
-                            hovered_contact = 1;
+                                hovered_block = stackitem[0];
+                                hovered_contact = 1;
+                            }
                         }
                     }
                     if (block.blocktype == 2 || block.blocktype == 3) { 
@@ -1875,6 +2022,7 @@ function updateShaderCodeAux (block_id) {
                     case "black":
                         text = "vec4(0,0,0,0)"; break;
                     case "":
+                    case undefined:
                     case " ":
                         text = "0.0"; break;
                     default:
@@ -1967,7 +2115,9 @@ for (let s = 0; s < stacks.length; s++) {
 
 stage.add(layer);
 
+run_main_stack();
 updateBlocks();
+
 
 
 
@@ -2005,8 +2155,9 @@ const fragmentCode = `
 #version 300 es
 precision highp float;
 
-uniform int frame;
+uniform float frame;
 uniform float sinframe;
+uniform vec2 mouse;
 uniform vec2 canvasSize;
 out vec4 fragColor;
 
@@ -2020,8 +2171,9 @@ const fragmentCodeBeginning = `
 #version 300 es
 precision highp float;
 
-uniform int frame;
+uniform float frame;
 uniform float sinframe;
+uniform vec2 mouse;
 uniform vec2 canvasSize;
 out vec4 fragColor;
 
@@ -2035,10 +2187,10 @@ float _subtract(float x, float y) {return x - y;}
 float _subtract(int x, float y) {return float(x) - y;}
 float _subtract(float x, int y) {return x - float(y);}
 
-int _multiply(int x, int y) {return x + y;}
-float _multiply(float x, float y) {return x + y;}
-float _multiply(int x, float y) {return float(x) + y;}
-float _multiply(float x, int y) {return x + float(y);}
+int _multiply(int x, int y) {return x * y;}
+float _multiply(float x, float y) {return x * y;}
+float _multiply(int x, float y) {return float(x) * y;}
+float _multiply(float x, int y) {return x * float(y);}
 
 float _divide(int x, int y) {return float(x) / float(y);}
 float _divide(float x, float y) {return x / y;}
@@ -2126,10 +2278,13 @@ let everyFrame = function() {
     frame += 1;
 
     const frameUniform = gl.getUniformLocation(program, 'frame');
-    gl.uniform1i(frameUniform, frame);
+    gl.uniform1f(frameUniform, frame / 60);
 
     const sinFrameUniform = gl.getUniformLocation(program, 'sinframe');
     gl.uniform1f(sinFrameUniform, Math.sin(frame/50));
+
+    const mouseUniform = gl.getUniformLocation(program, 'mouse');
+    gl.uniform2f(mouseUniform, (mouseX - window.innerWidth + GL_WINDOW_WIDTH) / GL_WINDOW_WIDTH, mouseY / GL_WINDOW_WIDTH);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertices.length);
 }
