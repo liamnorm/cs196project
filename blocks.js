@@ -1,7 +1,9 @@
 // const COLORS = ['#DA0000', '#CB5E00', '#998300', '#008430', '#006DCB', '#84004F', '#CB008B'];
 // const HIGHLIGHT_COLORS = ["#A2003C", "#A02E00", "#576400", "#006273", "#1637A8", "#250033", "#860099"];
 
-const GL_WINDOW_WIDTH = 500
+const GL_WINDOW_WIDTH = 500;
+
+const LIBRARY_WIDTH = 400;
 
 const COLORS =           ['#FF0000', '#D77600', '#AD8E00', '#52B31E', '#008E07', '#008AC2', '#0002FE', '#85008A', '#D930A3', '#7B7B7B'];
 const HIGHLIGHT_COLORS = ["#C20051", "#BE3F00", "#537000", "#008A56", "#005C62", "#003F9B", "#2E0075", "#350066", "#AA0099", "#42486E"];
@@ -15,6 +17,7 @@ const SCALE = .75;
 const PRINT_COLOR = 8;
 const COLORING_COLOR = 9;
 const VARYING_COLOR = 5;
+const SHIFT_COLOR = VARYING_COLOR;
 
 const MARGIN_X = 8;
 const MARGIN_Y = 4;
@@ -30,6 +33,8 @@ const CLAMP_WIDTH = 20;
 const CLAMP_HEIGHT = 20;
 
 const EMPTY_CLAMP_HEIGHT = 20;
+
+const MAX_SCROLL = 1000;
 
 // var c = document.getElementById("canvas");
 // var ctx = c.getContext("2d");
@@ -56,6 +61,8 @@ let mouseY = 0;
 
 var blocks = {};
 var num_of_blocks = 0;
+
+var library_scroll = 0;
 
 var stacks = [
     // [[0, "print", [1], ["Hello"], [10, 10]],
@@ -94,11 +101,11 @@ var stacks = [
     // [4, "divide", [5, -1], ["0", "10"]],
     // [5, "timer", [], []]
     // ]
-    [[0, "run", [-1, -1, -1, -1], [-1, -1, -1, -1], [400, 200]]]
+    [[0, "run", [-1, -1, -1, -1], [-1, -1, -1, -1], [400, 100]]]
 ]
 
 //const BLOCK_LIBRARY = ["print", "color", "colorvalue", "red", "green", "blue", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
-const BLOCK_LIBRARY = ["run", "colorrgb", "color", "gradient", "checker", "shift", "setred", "setgreen", "setblue", "red", "green", "blue", "add", "subtract", "multiply", "divide", "x", "y", "centerdistance", "timer", "mousex", "mousey", "equal", "lessthan", "greaterthan"];
+const BLOCK_LIBRARY = ["run", "setred", "setgreen", "setblue", "x", "y", "centerdistance", "timer", "mousex", "mousey", "mousedistance", "colorrgb", "color", "xgradient", "ygradient", "checker", "shift", "xwave", "ywave", "pixelate", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "if", "ifelse", "and", "or", "not", "sine", "cosine", "tangent", "print"];
 
 
 class Block {
@@ -341,7 +348,11 @@ class Block {
         }
 
         this.groupobject.x(this.x);
-        this.groupobject.y(this.y);
+        if (this.library_block && !(this.block_stack == dragged_stack)) {
+            this.groupobject.y(this.y - library_scroll);
+        } else {
+            this.groupobject.y(this.y);
+        }
 
     }
 
@@ -473,7 +484,7 @@ class ColorRGBBlock extends StackBlock {
     block_name = "colorrgb";
     color = COLORING_COLOR;
     skeleton = [0,1,0,1,0,1];
-    text = ["set red", "0", "green", "0", "blue", "0"];
+    text = ["set red", "1", "green", "0", "blue", "0"];
     //shadercode_template = ["fragColor = vec4(", ", ", ", ", ", ", ");\n"];
     shadercode_template = ["r = float(", "); g = float(", "); b = float(", ");\n"];
 }
@@ -485,11 +496,11 @@ class ColorBlock extends StackBlock {
     shadercode_template = ["fragColor = ", ";\n; r=fragColor.r; g=fragColor.g; b = fragColor.b;"];
 }
 
-class GradientBlock extends StackBlock {
-    block_name = "gradient";
+class XGradientBlock extends StackBlock {
+    block_name = "xgradient";
     color = COLORING_COLOR;
     skeleton = [0,2,0,2];
-    text = ["gradient from ", "#ffff00", "to", "#00ffff"];
+    text = ["horizontal gradient from ", "#ffff00", "to", "#00ffff"];
     shadercode_template = [
         "vec4 gradColor1 = ", 
         ";\n; vec4 gradColor2 = ", 
@@ -497,6 +508,21 @@ class GradientBlock extends StackBlock {
             r = gradColor2.r * coord.x + gradColor1.r * (1.0 - coord.x); 
             g = gradColor2.g * coord.x + gradColor1.g * (1.0 - coord.x); 
             b = gradColor2.b * coord.x + gradColor1.b * (1.0 - coord.x);` 
+    ];
+}
+
+class YGradientBlock extends StackBlock {
+    block_name = "ygradient";
+    color = COLORING_COLOR;
+    skeleton = [0,2,0,2];
+    text = ["vertical gradient from ", "#ffff00", "to", "#00ffff"];
+    shadercode_template = [
+        "vec4 gradColor1 = ", 
+        ";\n; vec4 gradColor2 = ", 
+        `;\n; 
+            r = gradColor2.r * coord.y + gradColor1.r * (1.0 - coord.y); 
+            g = gradColor2.g * coord.y + gradColor1.g * (1.0 - coord.y); 
+            b = gradColor2.b * coord.y + gradColor1.b * (1.0 - coord.y);` 
     ];
 }
 class CheckerBlock extends DoubleClampBlock {
@@ -511,13 +537,48 @@ class CheckerBlock extends DoubleClampBlock {
 
 class ShiftBlock extends StackBlock {
     block_name = "shift";
-    color = COLORING_COLOR;
+    color = SHIFT_COLOR;
     skeleton = [0,1,0,1];
-    text = ["shift x ", "0.2", " y ", "0"];
+    text = ["shift x", "0.2", "y", "0"];
     shadercode_template = [
-        "coord.x += float(", 
-        ");\n coord.y += float(", 
+        "coord.x -= float(", 
+        ");\n coord.y -= float(", 
         ");\n coord.x = coord.x - floor(coord.x); coord.y = coord.y - floor(coord.y);"
+    ];
+}
+class XWaveBlock extends StackBlock {
+    block_name = "xwave";
+    color = SHIFT_COLOR;
+    skeleton = [0,1,0,1,0,1];
+    text = ["horizontal wave", "0.2", "", "0.1", "", "0"];
+    shadercode_template = [
+        "float length = float(", 
+        ");\n float height = float(",
+        ");\n float offset = float(",
+        "); \n coord.y += _sin((coord.x + offset)  * 3.141592 / length) * 0.5 * height;\n coord.y = coord.y - floor(coord.y);\n"
+    ];
+}
+class YWaveBlock extends StackBlock {
+    block_name = "ywave";
+    color = SHIFT_COLOR;
+    skeleton = [0,1,0,1,0,1];
+    text = ["vertical wave", "0.2", "", "0.1", "", "0"];
+    shadercode_template = [
+        "float length = float(", 
+        ");\n float height = float(",
+        ");\n float offset = float(",
+        "); \n coord.x += _sin((coord.y + offset)  * 3.141592 / length) * 0.5 * height;\n coord.x = coord.x - floor(coord.x);\n"
+    ];
+}
+class PixelateBlock extends StackBlock {
+    block_name = "pixelate";
+    color = COLORING_COLOR;
+    skeleton = [0,1];
+    text = ["pixelate size ", "10"];
+    shadercode_template = [
+        "float res = float(",  `);\n 
+        coord.x = floor(coord.x * res) / res; 
+        coord.y = floor(coord.y * res) / res;\n`
     ];
 }
 class ColorValueBlock extends ArgBlock {
@@ -570,6 +631,13 @@ class MouseYBlock extends ArgBlock {
     skeleton = [0];
     text = ["mouse Y"];
     shadercode_template = ["mouse.y"];
+}
+class MouseDistanceBlock extends ArgBlock {
+    block_name = "mousedistance";
+    color = PRINT_COLOR;
+    skeleton = [0];
+    text = ["distance to mouse"];
+    shadercode_template = ["sqrt((coord.x - mouse.x) * (coord.x - mouse.x) + (coord.y - mouse.y) * (coord.y - mouse.y))"];
 }
 
 class SetRedBlock extends StackBlock {
@@ -716,7 +784,7 @@ class ModBlock extends ArgBlock {
     skeleton = [1, 0, 1];
     text = [" ", "%", " "];
 
-    shadercode_template = ["_modulus(", ", ", ")"];
+    shadercode_template = ["_mod(float(", "), float(", "))"];
 
     eval () {
         this.prepArgs();
@@ -905,30 +973,36 @@ layer.add(background);
 let sidebar = new Konva.Rect({
     fill: "#FFFFFF",
     opacity: 0.2,
-    width: 400 * SCALE,
+    width: LIBRARY_WIDTH * SCALE,
     height: height
 });
 layer.add(sidebar);
 
 let library_text = new Konva.Text({
-    x: 50 * SCALE,
-    y: 10 * SCALE,
-    text: "LIBRARY",
+    x: (window.innerWidth - GL_WINDOW_WIDTH) / 2,
+    y: 250 * SCALE,
+
+    text: "Drag in blocks from the side \nand piece them together to \ncreate effects!",
     fontStyle: 'bold',
-    fontSize: 30 * SCALE,
+    fontSize: 25 * SCALE,
     fontFamily: 'Helvetica',
-    fill: "#FFFFFF"
+    fill: "#FFFFFF",
+    align: 'center',
+    opacity: .5,
 });
 layer.add(library_text);
 
 
 //get total number of blocks in stack
 
-let i = 0;
-let stacklength = 0;
-for (let stack of stacks) {
-    for (let _ of stack) {
-        stacklength += 1;
+var stacklength = 0;
+
+function getStackLength() {
+    stacklength = 0;
+    for (let stack of stacks) {
+        for (let _ of stack) {
+            stacklength += 1;
+        }
     }
 }
 
@@ -944,16 +1018,19 @@ function get_block_ids() {
     return block_ids;
 }
 
-let new_id = 0;
-for (let block_name of BLOCK_LIBRARY) {
+function addLibraryBlocks () {
+    let new_id = 0;
+    let i = 0;
+    for (let block_name of BLOCK_LIBRARY) {
 
-    let block_ids = get_block_ids();
-    while (block_ids.includes(new_id)) {
-        new_id += 1;
-        block_ids = get_block_ids();
+        let block_ids = get_block_ids();
+        while (block_ids.includes(new_id)) {
+            new_id += 1;
+            block_ids = get_block_ids();
+        }
+        stacks.push([[new_id, block_name, [-1, -1, -1, -1, -1], [], [50, i * 36 + 50], true]]);
+        i += 1;
     }
-    stacks.push([[new_id, block_name, [-1, -1, -1, -1, -1], [], [50, i * 36 + 50], true]]);
-    i += 1;
 }
 
 // create block objects for each item in the stack
@@ -1005,8 +1082,12 @@ function blockObjectFromName(block_name) {
         case "colorrgb": b = new ColorRGBBlock(); break;
         case "color": b = new ColorBlock(); break;
         case "checker": b = new CheckerBlock(); break;
-        case "gradient": b = new GradientBlock(); break;
+        case "xgradient": b = new XGradientBlock(); break;
+        case "ygradient": b = new YGradientBlock(); break;
         case "shift": b = new ShiftBlock(); break;
+        case "xwave": b = new XWaveBlock(); break;
+        case "ywave": b = new YWaveBlock(); break;
+        case "pixelate": b = new PixelateBlock(); break;
         case "colorvalue": b = new ColorValueBlock(); break;
         case "x": b = new XBlock(); break;
         case "y": b = new YBlock(); break;
@@ -1014,6 +1095,7 @@ function blockObjectFromName(block_name) {
         case "timer": b = new TimerBlock(); break;
         case "mousex": b = new MouseXBlock(); break;
         case "mousey": b = new MouseYBlock(); break;
+        case "mousedistance": b = new MouseDistanceBlock(); break;
         case "red": b = new RedBlock(); break;
         case "orange": b = new OrangeBlock(); break;
         case "yellow": b = new YellowBlock(); break;
@@ -1076,18 +1158,24 @@ function run_main_stack() {
         let block = blocks[stacks[s][0][0]];
         if (block.block_name == "run" && !stacks[s][0][5]) {
             stack_being_run = s;
-            console.log(stack_being_run);
         }
     }
 }
 
-function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
+function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false, child1 = null, child2 = null) {
     // don't modify the stacks!
     let block = blockObjectFromName(block_name);
     block.id = id;
     block.x = x;
     block.y = y;
     block.library_block = library_block;
+
+    if (child1 != null) {
+        block.clamped_block = child1;
+    }
+    if (child2 != null) {
+        block.clamped_block2 = child2;
+    }
 
     if (textArgs.length != 0) {
         block.textArgs = [];
@@ -1487,7 +1575,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
             stacks[this.block_stack][0][5] = false;
 
             //creates new library block at location it just once was
-            fullyCreateBlock(new_block_name, new_block_id, [], lib_block.prev_x, lib_block.prev_y, true);
+            fullyCreateBlock(new_block_name, new_block_id, [], lib_block.prev_x, lib_block.prev_y, true, -1, -1);
             
             updateBlocks();
             updateShaderCode();
@@ -1510,37 +1598,13 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
         // delete trashed blocks
         if (this.x() < 400 * SCALE) {
 
-            function deleteStack (stack) {
-
-                let num_blocks_deleted = stacks[stack].length;
-
-                num_of_blocks -= num_blocks_deleted;
-                for (let stackitem of stacks[stack]) {
-                    let block_id = stackitem[0];
-                    if (blocks[block_id].clamped_block != -1) {
-                        let child = blocks[block_id].clamped_block;
-                        let substack = blocks[child].block_stack;
-                        deleteStack(substack);
-                    }
-                    if (blocks[block_id].clamped_block2 != -1) {
-                        let child = blocks[block_id].clamped_block2;
-                        let substack = blocks[child].block_stack;
-                        deleteStack(substack);
-                    }
-
-                    blocks[block_id].groupobject.destroy();
-                    delete blocks[block_id];
-                }
-                stacks.splice(stack,1);
-            }
-
             deleteStack(dragged_stack);
 
-            if (stack_being_run == dragged_stack) {
-                stack_being_run = -1
-                run_main_stack();
-                makeShader(DEFAULT_SHADER_CODE);
-            }
+            // if (stack_being_run == dragged_stack) {
+            //     stack_being_run = -1
+            //     run_main_stack();
+            //     makeShader(DEFAULT_SHADER_CODE);
+            // }
 
 
             // delete blocks
@@ -1672,7 +1736,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
                     // splice out the removed substack.
 
                     if (stack_being_run == s) {
-                        stack_being_run = stacks.length - 1;
+                        stack_being_run = -1;
                     }
 
                     // replace instances of 
@@ -1708,6 +1772,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
                     }
 
                     updateBlocks();
+                    run_main_stack();
                     updateShaderCode();
 
                     return;
@@ -1721,7 +1786,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
         findMouseOveredBlock();
         if (hovered_arg == -1) {
             if (stack_being_run == this.block_stack) {
-                stack_being_run = -1
+                stack_being_run = -1;
                 run_main_stack();
                 updateBlocks();
                 makeShader(DEFAULT_SHADER_CODE);
@@ -1729,7 +1794,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false) {
                 stack_being_run = this.block_stack;
                 updateBlocks();
                 updateShaderCode();
-                for (i = 0; i < stacks[stack_being_run].length; i++) {
+                for (let i = 0; i < stacks[stack_being_run].length; i++) {
                     let block_to_run = blocks[stacks[stack_being_run][i][0]];
                     if (block_to_run.blocktype != 1) {
                         block_to_run.eval();
@@ -1788,6 +1853,14 @@ function updateBlocks () {
             updated_block.groupobject.block_stack = s;
             updated_block.children = stacks[s][b][2];
             updated_block.block_stack = s;
+
+            // update children of clamps
+            if (updated_block.clamped_block > -1) {
+                blocks[updated_block.clamped_block].clamp_parent = block_id;
+            }
+            if (updated_block.clamped_block2 > -1) {
+                blocks[updated_block.clamped_block2].clamp_parent2 = block_id;
+            }
 
             // update how it looks
             updated_block.updateSize();
@@ -1860,6 +1933,19 @@ function handleMouseMove(event) {
     mouseX = event.pageX;
     mouseY = event.pageY;
 }
+
+document.addEventListener('wheel',function(event){
+    if (mouseX < LIBRARY_WIDTH * SCALE) {
+        library_scroll += event.deltaY;
+        if (library_scroll < 0) {
+            library_scroll = 0;
+        }
+        if (library_scroll > MAX_SCROLL) {
+            library_scroll = MAX_SCROLL;
+        }
+        updateBlocks();
+    }
+}, false);
 
 function findHoveredBlock () {
 
@@ -2076,47 +2162,278 @@ function updateShaderCode () {
     }
 }
 
-for (let s = 0; s < stacks.length; s++) { 
-    for (let b = 0; b < stacks[s].length; b++) {
-        let stackitem = stacks[s][b];
-        let x = stackitem[4] == null ? 0 : stackitem[4][0];
-        let y = stackitem[4] == null ? 0 : stackitem[4][1];
-        let library_block = stackitem[5] != null;
-        fullyCreateBlock(stackitem[1], stackitem[0], stackitem[3], x, y, library_block);
-    }
-}
+function fullyCreateBlocks() {
 
-for (let s = 0; s < stacks.length; s++) { 
+    getStackLength();
 
-    // Get 'next' value for block
-    // easy
-    for (let b = 0; b < stacks[s].length; b++) {
-        let block = blocks[stacks[s][b][0]];
-        block.children = stacks[s][b][2];
-        if (b < stacks[s].length - 1) {
-            let next = stacks[s][b+1][0];
-            if (!block.children.includes(next)) {
-                block.next = stacks[s][b+1][0];
+    addLibraryBlocks();
+
+    for (let s = 0; s < stacks.length; s++) { 
+        for (let b = 0; b < stacks[s].length; b++) {
+            let stackitem = stacks[s][b];
+            let x = stackitem[4] == null ? 0 : stackitem[4][0];
+            let y = stackitem[4] == null ? 0 : stackitem[4][1];
+            let library_block = stackitem[5] != null;
+            let children_data = stackitem[6];
+            let child1 = null;
+            let child2 = null;
+            if (stackitem[6] != null) {
+                child1 = stackitem[6][0]; 
+                child2 = stackitem[6][1];
             }
+            fullyCreateBlock(stackitem[1], stackitem[0], stackitem[3], x, y, library_block, child1, child2);
         }
     }
 
-    for (let b = 0; b < stacks[s].length; b++) {
-        let block = blocks[stacks[s][b][0]];
-        block.updateSize();
-    }
+    for (let s = 0; s < stacks.length; s++) { 
 
-    for (let b = 0; b < stacks[s].length; b++) {
-        //calculate location of each block
-        let block = blocks[stacks[s][b][0]];
-        block.updateLocation();
+        // Get 'next' value for block
+        // easy
+        for (let b = 0; b < stacks[s].length; b++) {
+            let block = blocks[stacks[s][b][0]];
+            block.children = stacks[s][b][2];
+            if (b < stacks[s].length - 1) {
+                let next = stacks[s][b+1][0];
+                if (!block.children.includes(next)) {
+                    block.next = stacks[s][b+1][0];
+                }
+            }
+        }
+
+        for (let b = 0; b < stacks[s].length; b++) {
+            let block = blocks[stacks[s][b][0]];
+            block.updateSize();
+        }
+
+        for (let b = 0; b < stacks[s].length; b++) {
+            //calculate location of each block
+            let block = blocks[stacks[s][b][0]];
+            block.updateLocation();
+        }
     }
 }
+
+fullyCreateBlocks();
 
 stage.add(layer);
 
 run_main_stack();
 updateBlocks();
+
+function deleteStack (stack) {
+
+    let num_blocks_deleted = stacks[stack].length;
+
+    num_of_blocks -= num_blocks_deleted;
+    for (let stackitem of stacks[stack]) {
+        let block_id = stackitem[0];
+        if (blocks[block_id].clamped_block != -1) {
+            let child = blocks[block_id].clamped_block;
+            let substack = blocks[child].block_stack;
+            deleteStack(substack);
+        }
+        if (blocks[block_id].clamped_block2 != -1) {
+            let child = blocks[block_id].clamped_block2;
+            let substack = blocks[child].block_stack;
+            deleteStack(substack);
+        }
+
+        blocks[block_id].groupobject.destroy();
+        delete blocks[block_id];
+    }
+    stacks.splice(stack,1);
+}
+
+function reset() {
+    for (let block_id in blocks) {
+        blocks[block_id].groupobject.destroy();
+        delete blocks[block_id];
+    }
+    stacklength = 0;
+    num_of_blocks = 0;
+    stack_being_run = -1;
+    hovered_arg = -1;
+    hovered_block = -1;
+    hovered_contact = -1;
+
+    library_scroll = 0;
+}
+
+function resetButton() {
+
+    reset();
+
+    stacks = [[[0, "run", [-1, -1, -1, -1], [-1, -1, -1, -1], [400, 100]]]];
+
+    fullyCreateBlocks();
+    run_main_stack();
+    updateBlocks();
+    updateShaderCode();
+
+};
+
+function example(example_number) {
+
+    const EXAMPLES = [
+
+        // Example 1: Red gradient
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "setred", [2], [-1]],
+                [2, "x", [], []],
+            ]
+        ],
+
+        // Example 2: Mouse
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "setred", [2], [-1]],
+                [2, "mousex", [], []],
+                [3, "setgreen", [4], [-1]],
+                [4, "mousey", [], []],
+            ]
+        ],
+
+        // Example 3: Shift example
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "shift", [2, 3], [-1, -1]],
+                [2, "mousex", [], []],
+                [3, "mousey", [], []],
+                [4, "setred", [5], [-1]],
+                [5, "x", [], []],
+                [6, "setgreen", [7], [-1]],
+                [7, "y", [], []],
+                [8, "setblue", [-1], [.5]]
+            ]
+        ],
+
+        // Example 4: Shift example
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "xwave", [-1, -1, 2], [0.5, 0.1, -1]],
+                [2, "timer", [], []],
+                [3, "setblue", [4], [-1]],
+                [4, "mod", [5, -1], [-1, 1]],
+                [5, "multiply", [6, -1], [-1, 10]],
+                [6, "y", [], []],
+            ]
+        ],
+
+
+        // Example 5: Overlapping light
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "setred", [2], [-1]],
+                [2, "subtract", [-1, 3], [3, -1]],
+                [3, "multiply", [-1, 4], [10, -1]],
+                [4, "centerdistance", [], []],
+                [5, "setgreen", [6], [-1]],
+                [6, "subtract", [-1, 7], [3, -1]],
+                [7, "multiply", [-1, 8], [10, -1]],
+                [8, "mousedistance", [], []],
+            ]
+        ],
+
+        // Example 6: Checker
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "checker", [-1, -1], [8, 8], [], false, [2, 4]],
+            ],
+            [
+                [2, "setgreen", [3], [-1]],
+                [3, "y", [], [], [], 2],
+            ],
+            [
+                [4, "setred", [5], [-1]],
+                [5, "x", [], [], [], 2],
+            ],
+        ],
+    ];
+
+    reset();
+
+    stacks = EXAMPLES[example_number-1];
+    
+
+    fullyCreateBlocks();
+    run_main_stack();
+    updateBlocks();
+    updateShaderCode();
+
+};
+
+function example2Button() {
+
+    reset();
+
+    stacks = [
+        [
+            [0, "run", [], [], [400, 100]],
+            [1, "setred", [2], [-1]],
+            [2, "subtract", [-1, 3], [3, -1]],
+            [3, "multiply", [-1, 4], [10, -1]],
+            [4, "centerdistance", [], []],
+            [5, "setgreen", [6], [-1]],
+            [6, "subtract", [-1, 7], [3, -1]],
+            [7, "multiply", [-1, 8], [10, -1]],
+            [8, "mousedistance", [], []],
+        ]
+    ];
+
+    fullyCreateBlocks();
+    run_main_stack();
+    updateBlocks();
+    updateShaderCode();
+
+};
+
+function exportButton() {
+
+    const vctx = textCanvas.getContext('2d');
+    vctx.drawImage(canvas, 0, 0); 
+
+    const capturedImage = textCanvas.toDataURL();
+
+    const date = new Date();
+
+    let day = date.getDate();
+    let month = date.getMonth() + 1;
+    let year = date.getFullYear();
+    let hours = date.getHours();
+    let minutes = date.getMinutes();
+    let seconds = date.getSeconds();
+
+    let currentDate = `${hours}-${minutes}-${seconds}-${day}-${month}-${year}`;
+
+    downloadImage(capturedImage, 'capture' + currentDate + '.jpeg');
+
+};
+
+function downloadImage(data, filename = 'untitled.jpeg') {
+    var a = document.createElement('a');
+    a.href = data;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+}
+
+const reset_button = document.getElementById("reset");
+reset_button.onclick = () => {resetButton()};
+const export_button = document.getElementById("export");
+export_button.onclick = () => {exportButton()};
+
+const examplebuttons = document.getElementsByClassName("example");
+for (let b = 0; b < examplebuttons.length; b++) {
+    examplebuttons[b].onclick = () => {example(b+1)};
+}
+
 
 
 
@@ -2125,7 +2442,10 @@ updateBlocks();
 // CANVAS STUFF
 const canvas = document.querySelector("#glcanvas");
 // Initialize the GL context
-const gl = canvas.getContext("webgl2");
+const gl = canvas.getContext("webgl2", {preserveDrawingBuffer: true});
+
+const textCanvas = document.querySelector("#text");
+const ctx = textCanvas.getContext("2d");
 
 // Only continue if WebGL is available and working
 if (gl === null) {
@@ -2274,6 +2594,11 @@ makeShader(shader_code);
 
 let frame = 0;
 
+ctx.font = "15px Helvetica";
+ctx.fillStyle = "white";
+ctx.strokeStyle = "white";
+ctx.lineWidth = 1;
+
 let everyFrame = function() {
     frame += 1;
 
@@ -2284,9 +2609,44 @@ let everyFrame = function() {
     gl.uniform1f(sinFrameUniform, Math.sin(frame/50));
 
     const mouseUniform = gl.getUniformLocation(program, 'mouse');
-    gl.uniform2f(mouseUniform, (mouseX - window.innerWidth + GL_WINDOW_WIDTH) / GL_WINDOW_WIDTH, mouseY / GL_WINDOW_WIDTH);
+    gl.uniform2f(mouseUniform, (mouseX - window.innerWidth + GL_WINDOW_WIDTH) / GL_WINDOW_WIDTH, 1 - ((mouseY - 100) / GL_WINDOW_WIDTH));
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertices.length);
+
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    let ah = 5;
+    let al = 80;
+    let mid = 240;
+    let mar = 15;
+    ctx.fillText("X", mid-10, mar+5);
+    ctx.fillText("Y", mar-10, mid+5);
+    ctx.beginPath();
+    ctx.moveTo(mid - 20, mar);
+    ctx.lineTo(mid-al, mar);
+    ctx.moveTo(mid-al+ah, mar+ah);
+    ctx.lineTo(mid-al, mar);
+    ctx.lineTo(mid-al+ah, mar-ah);
+
+    ctx.moveTo(mid + 20, mar);
+    ctx.lineTo(mid+al, mar);
+    ctx.moveTo(mid+al-ah, mar+ah);
+    ctx.lineTo(mid+al, mar);
+    ctx.lineTo(mid+al-ah, mar-ah);
+
+    ctx.moveTo(mar, mid - 20);
+    ctx.lineTo(mar, mid-al);
+    ctx.moveTo(mar+ah, mid-al+ah);
+    ctx.lineTo(mar, mid-al);
+    ctx.lineTo(mar-ah, mid-al+ah);
+
+    ctx.moveTo(mar, mid + 20);
+    ctx.lineTo(mar, mid+al);
+    ctx.moveTo(mar+ah, mid+al-ah);
+    ctx.lineTo(mar, mid+al);
+    ctx.lineTo(mar-ah, mid+al-ah);
+    ctx.stroke();
+
+
 }
 
 var t = setInterval(everyFrame, 30);

@@ -8,12 +8,32 @@
 </style>
 <body style="background-color:black;">
 
+    <header  style="color:white; font-family: 'Helvetica';">
+        <h1>&nbsp&nbsp SHADERBLOCKS </h1>
+        &nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp
+        &nbsp&nbsp&nbsp&nbsp<a id="reset" href="javascript:void(0);" onclick="resetButton();">Reset</a>
+        &nbsp&nbsp&nbsp&nbsp<a id="export" href="javascript:void(0);" download="capture.png" onclick="exportButton();">Export</a>
+
+    </header>
+
 <div class="childl" id="IdOfDivContainingCanvas">
     <div id="container"></div>
 </div>
 <div class="childr" id="IdOfDivContainingCanvas2">
 <canvas id="glcanvas" width="480" height="480"></canvas>
+<canvas id="text" width="480" height="480"></canvas>
 <!-- <script src="webgl-demo.js"></script> -->
+<div style="color:white; font-family: 'Helvetica'; margin-top: 10px;">
+        <ul style="list-style-type: none;">
+            <li><a class="example" href="javascript:void(0);" onclick="example(1);">Example 1 - Red gradient</a></li>
+            <li><a class="example" href="javascript:void(0);" onclick="example(2);">Example 2 - Mouse</a></li>
+            <li><a class="example" href="javascript:void(0);" onclick="example(3);">Example 3 - Shift</a></li>
+            <li><a class="example" href="javascript:void(0);" onclick="example(5);">Example 4 - Wave</a></li>
+            <li><a class="example" href="javascript:void(0);" onclick="example(4);">Example 5 - Red and green mixing</a></li>
+            <li><a class="example" href="javascript:void(0);" onclick="example(6);">Example 6 - Checker</a></li>
+            <li><a class="example" href="javascript:void(0);" onclick="example(7);">Example 7 - Pixelation</a></li>
+        </ul>
+</div>
 <script src="blocks.js" type="module"></script>
 </div>
 

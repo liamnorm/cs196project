@@ -1,13 +1,56 @@
-html, body {padding: 0; margin: 0; overflow: hidden}
+html, body {padding: 0; margin: 0; overflow: hidden;}
 
 .childl {
     display: inline-block;
     vertical-align: top;
     margin: left;
+    border-style: solid; border-color: #999999;
   }
 
 .childr {
     display: inline-block;
     vertical-align: top;
     margin: right;
+    /* border-style: solid; border-color: #999999; */
+}
+
+#glcanvas {
+  border-style: solid; border-color: #999999;
+}
+
+header > h1 { display: inline-block; }
+
+a:link {
+  color: yellow;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+a:visited {
+  color: lightgray;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+a:hover {
+  color: hotpink;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+a:active {
+  color: red;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.container {
+  position: relative;
+}
+
+#text {
+  position: absolute;
+  right: 0px;
+  top: 80px;
+  z-index: 10;
 }
