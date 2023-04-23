@@ -36,6 +36,8 @@ const EMPTY_CLAMP_HEIGHT = 20;
 
 const MAX_SCROLL = 1000;
 
+var imageURL = "tree.jpg";
+
 // var c = document.getElementById("canvas");
 // var ctx = c.getContext("2d");
 
@@ -1857,7 +1859,7 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false, c
                 stack_being_run = -1;
                 run_main_stack();
                 updateBlocks();
-                makeShader(DEFAULT_SHADER_CODE);
+                makeShader(DEFAULT_SHADER_CODE, imageURL);
             } else {
                 stack_being_run = this.block_stack;
                 updateBlocks();
@@ -2224,9 +2226,9 @@ function updateShaderCode () {
         // }
 
         console.log(shader_code);
-        makeShader(shader_code);
+        makeShader(shader_code, imageURL);
     } else {
-        makeShader(DEFAULT_SHADER_CODE);
+        makeShader(DEFAULT_SHADER_CODE, imageURL);
     }
 }
 
@@ -2339,6 +2341,36 @@ function resetButton() {
     updateShaderCode();
 
 };
+
+function uploadImage() {
+
+    const button = document.getElementById("imageupload");
+
+    console.log(button);
+
+    button.click();
+
+    reset();
+
+    stacks = [[[0, "run", [-1, -1, -1, -1], [-1, -1, -1, -1], [400, 100]]]];
+
+    fullyCreateBlocks();
+    run_main_stack();
+    updateBlocks();
+    updateShaderCode();
+
+};
+
+function getImg(event){
+
+    const file = event.target.files[0];
+
+    console.log(file);
+
+    imageURL = window.URL.createObjectURL(file);
+
+    updateShaderCode();
+}
 
 function example(example_number) {
 
@@ -2515,6 +2547,16 @@ function example2Button() {
 
 };
 
+document.body.onkeyup = function(e) {
+    if (e.key == " " ||
+        e.code == "Space" ||      
+        e.keyCode == 32      
+    ) {
+      exportButton();
+      console.log("here");
+    }
+  }
+
 function exportButton() {
 
     const vctx = textCanvas.getContext('2d');
@@ -2547,8 +2589,12 @@ function downloadImage(data, filename = 'untitled.jpeg') {
 
 const reset_button = document.getElementById("reset");
 reset_button.onclick = () => {resetButton()};
+const upload_button = document.getElementById("upload");
+upload_button.onclick = () => {uploadImage()};
 const export_button = document.getElementById("export");
 export_button.onclick = () => {exportButton()};
+const file_input = document.getElementById("imageupload");
+file_input?.addEventListener('change', getImg)
 
 const examplebuttons = document.getElementsByClassName("example");
 for (let b = 0; b < examplebuttons.length; b++) {
@@ -2719,6 +2765,11 @@ float offset = 0.;
 vec4 texcolor = vec4(0,0,0,1);
 
 vec2 coord = gl_FragCoord.xy/canvasSize.xy;
+
+texcolor = texture(uSampler, vec2(coord.x, 1.0 - coord.y));
+    r = texcolor.r;
+    g = texcolor.g;
+    b = texcolor.b;
 `;
 
 const fragmentCodeEnd = `
@@ -2842,7 +2893,7 @@ const vertices = [
 
 var texture = null;
 
-function makeShader (code) {
+function makeShader (code, imageURL) {
     program = gl.createProgram();
 
     gl.attachShader(program, createShader(gl.VERTEX_SHADER, vertexCode));
@@ -2865,12 +2916,11 @@ function makeShader (code) {
     const canvasSizeUniform = gl.getUniformLocation(program, 'canvasSize');
     gl.uniform2f(canvasSizeUniform, canvas.width, canvas.height);
 
-    texture = loadTexture(gl, "tree.jpg");
-    const textureCoordBuffer = initTextureBuffer(gl);
+    texture = loadTexture(gl, imageURL);
 
 }
 
-makeShader(shader_code);
+makeShader(shader_code, imageURL);
 
 let frame = 0;
 

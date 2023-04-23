@@ -54,3 +54,9 @@ a:active {
   top: 40px;
   z-index: 10;
 }
+
+.exampleimg {
+  width: 50px;
+  max-width: 50px;
+  border-style: solid; border-color: #999999;
+}

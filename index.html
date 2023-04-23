@@ -12,9 +12,12 @@
         <t style="font-size: 30px; font-weight: bold">&nbsp&nbsp SHADERBLOCKS </t>
         &nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp
         &nbsp&nbsp&nbsp&nbsp<a id="reset" href="javascript:void(0);" onclick="resetButton();">Reset</a>
+        &nbsp&nbsp&nbsp&nbsp<a id="upload" href="javascript:void(0);" onclick="uploadImage();">Upload Image</a>
         &nbsp&nbsp&nbsp&nbsp<a id="export" href="javascript:void(0);" download="capture.png" onclick="exportButton();">Export</a>
 
     </header>
+
+    <input id="imageupload" type='file' onchange=";" hidden/>
 
 <div class="childl" id="IdOfDivContainingCanvas">
     <div id="container"></div>
@@ -24,18 +27,22 @@
 <canvas id="text" width="480" height="480"></canvas>
 <!-- <script src="webgl-demo.js"></script> -->
 <div style="color:white; font-family: 'Helvetica'; margin-top: 10px;">
-        <ul style="list-style-type: none;">
-            <li><a class="example" href="javascript:void(0);" onclick="example(1);">Example 1 - Red gradient</a></li>
-            <li><a class="example" href="javascript:void(0);" onclick="example(2);">Example 2 - Mouse</a></li>
-            <li><a class="example" href="javascript:void(0);" onclick="example(3);">Example 3 - Shift</a></li>
-            <li><a class="example" href="javascript:void(0);" onclick="example(5);">Example 4 - Wave</a></li>
-            <li><a class="example" href="javascript:void(0);" onclick="example(4);">Example 5 - Red and green</a></li>
-            <li><a class="example" href="javascript:void(0);" onclick="example(6);">Example 6 - Checker</a></li>
-            <li><a class="example" href="javascript:void(0);" onclick="example(7);">Example 7 - Pixelation</a></li>
-            <li><a class="example" href="javascript:void(0);" onclick="example(8);">Example 8 - Double wave</a></li>
-            <li><a class="example" href="javascript:void(0);" onclick="example(9);">Example 9 - TV static</a></li>
-            <li><a class="example" href="javascript:void(0);" onclick="example(10);">Example 10 - Image</a></li>
-        </ul>
+    <p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbspExamples</p>
+    <ul style = "list-style: none;">
+            <li><a class="example" href="javascript:void(0);" onclick="example(1);"><img class="exampleimg" src="thumbnails/thumbnail1.jpeg" style="width:50px;"/></a>
+            <a class="example" href="javascript:void(0);" onclick="example(2);"><img class="exampleimg" src="thumbnails/thumbnail2.jpeg" style="width:50px;"/></a>
+            <a class="example" href="javascript:void(0);" onclick="example(3);"><img class="exampleimg" src="thumbnails/thumbnail3.jpeg" style="width:50px;"/></a>
+            <a class="example" href="javascript:void(0);" onclick="example(4);"><img class="exampleimg" src="thumbnails/thumbnail4.jpeg" style="width:50px;"/></a>
+            <a class="example" href="javascript:void(0);" onclick="example(5);"><img class="exampleimg" src="thumbnails/thumbnail5.jpeg" style="width:50px;"/></a>
+            </li>
+            <li>
+            <a class="example" href="javascript:void(0);" onclick="example(6);"><img class="exampleimg" src="thumbnails/thumbnail6.jpeg" style="width:50px;"/></a>
+            <a class="example" href="javascript:void(0);" onclick="example(7);"><img class="exampleimg" src="thumbnails/thumbnail7.jpeg" style="width:50px;"/></a>
+            <a class="example" href="javascript:void(0);" onclick="example(8);"><img class="exampleimg" src="thumbnails/thumbnail8.jpeg" style="width:50px;"/></a>
+            <a class="example" href="javascript:void(0);" onclick="example(9);"><img class="exampleimg" src="thumbnails/thumbnail9.jpeg" style="width:50px;"/></a>
+            <a class="example" href="javascript:void(0);" onclick="example(10);"><img class="exampleimg" src="thumbnails/thumbnail10.jpeg" style="width:50px;"/></a>
+            </li>
+    </ul>
 </div>
 <script src="blocks.js" type="module"></script>
 </div>
