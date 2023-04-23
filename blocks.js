@@ -105,7 +105,7 @@ var stacks = [
 ]
 
 //const BLOCK_LIBRARY = ["print", "color", "colorvalue", "red", "green", "blue", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
-const BLOCK_LIBRARY = ["run", "setred", "setgreen", "setblue", "x", "y", "centerdistance", "timer", "mousex", "mousey", "mousedistance", "colorrgb", "color", "xgradient", "ygradient", "checker", "shift", "xwave", "ywave", "pixelate", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "if", "ifelse", "and", "or", "not", "sine", "cosine", "tangent", "print"];
+const BLOCK_LIBRARY = ["run", "setred", "setgreen", "setblue", "setbrightness", "x", "y", "centerdistance", "timer", "mousex", "mousey", "mousedistance", "colorrgb", "color", "image", "xgradient", "ygradient", "checker", "shift", "xwave", "ywave", "pixelate", "imagered", "imagegreen", "imageblue", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "if", "ifelse", "and", "or", "not", "sine", "cosine", "tangent", "random", "print"];
 
 
 class Block {
@@ -480,6 +480,7 @@ class PrintBlock extends StackBlock {
         return null;
     }
 }
+
 class ColorRGBBlock extends StackBlock {
     block_name = "colorrgb";
     color = COLORING_COLOR;
@@ -495,12 +496,24 @@ class ColorBlock extends StackBlock {
     text = ["set color to", "#00ff00"];
     shadercode_template = ["fragColor = ", ";\n; r=fragColor.r; g=fragColor.g; b = fragColor.b;"];
 }
+class ImageBlock extends StackBlock {
+    block_name = "image";
+    color = COLORING_COLOR;
+    skeleton = [0];
+    text = ["set color to image"];
+    shadercode_template = [`
+    texcolor = texture(uSampler, vec2(coord.x, 1.0 - coord.y));
+    r = texcolor.r;
+    g = texcolor.g;
+    b = texcolor.b;
+    `];
+}
 
 class XGradientBlock extends StackBlock {
     block_name = "xgradient";
     color = COLORING_COLOR;
     skeleton = [0,2,0,2];
-    text = ["horizontal gradient from ", "#ffff00", "to", "#00ffff"];
+    text = ["x gradient ", "#ffff00", "to", "#00ffff"];
     shadercode_template = [
         "vec4 gradColor1 = ", 
         ";\n; vec4 gradColor2 = ", 
@@ -515,7 +528,7 @@ class YGradientBlock extends StackBlock {
     block_name = "ygradient";
     color = COLORING_COLOR;
     skeleton = [0,2,0,2];
-    text = ["vertical gradient from ", "#ffff00", "to", "#00ffff"];
+    text = ["y gradient ", "#ffff00", "to", "#00ffff"];
     shadercode_template = [
         "vec4 gradColor1 = ", 
         ";\n; vec4 gradColor2 = ", 
@@ -543,7 +556,7 @@ class ShiftBlock extends StackBlock {
     shadercode_template = [
         "coord.x -= float(", 
         ");\n coord.y -= float(", 
-        ");\n coord.x = coord.x - floor(coord.x); coord.y = coord.y - floor(coord.y);"
+        ");\n  // coord.x = coord.x - floor(coord.x); // coord.y = coord.y - floor(coord.y);\n"
     ];
 }
 class XWaveBlock extends StackBlock {
@@ -552,9 +565,9 @@ class XWaveBlock extends StackBlock {
     skeleton = [0,1,0,1,0,1];
     text = ["horizontal wave", "0.2", "", "0.1", "", "0"];
     shadercode_template = [
-        "float length = float(", 
-        ");\n float height = float(",
-        ");\n float offset = float(",
+        "length = float(", 
+        ");\n height = float(",
+        ");\n offset = float(",
         "); \n coord.y += _sin((coord.x + offset)  * 3.141592 / length) * 0.5 * height;\n coord.y = coord.y - floor(coord.y);\n"
     ];
 }
@@ -564,9 +577,9 @@ class YWaveBlock extends StackBlock {
     skeleton = [0,1,0,1,0,1];
     text = ["vertical wave", "0.2", "", "0.1", "", "0"];
     shadercode_template = [
-        "float length = float(", 
-        ");\n float height = float(",
-        ");\n float offset = float(",
+        "length = float(", 
+        ");\n height = float(",
+        ");\n offset = float(",
         "); \n coord.x += _sin((coord.y + offset)  * 3.141592 / length) * 0.5 * height;\n coord.x = coord.x - floor(coord.x);\n"
     ];
 }
@@ -719,12 +732,44 @@ class PinkBlock extends StackBlock {
     shadercode_template = ["pink"];
 }
 
+class SetBrightnessBlock extends StackBlock {
+    block_name = "setbrightness";
+    color = COLORING_COLOR;
+    skeleton = [0, 1];
+    text = ["set brightness ", "1"];
+    shadercode_template = ["w = float(", ");\n r = w; g = w; b = w;"];
+}
+
 class TransparencyBlock extends StackBlock {
     block_name = "transparency";
     color = 9;
     skeleton = [0, 1];
     text = ["set transparency ", "0.5"];
     shadercode_template = ["a = float(", ");\n"];
+}
+
+class ImageRedBlock extends ArgBlock {
+    block_name = "imagered";
+    color = 0;
+    skeleton = [0];
+    text = ["image red"];
+    shadercode_template = ["texture(uSampler, vec2(coord.x, 1.0 - coord.y)).r"];
+}
+
+class ImageGreenBlock extends ArgBlock {
+    block_name = "imagegreen";
+    color = 4;
+    skeleton = [0];
+    text = ["image green"];
+    shadercode_template = ["texture(uSampler, vec2(coord.x, 1.0 - coord.y)).g"];
+}
+
+class ImageBlueBlock extends ArgBlock {
+    block_name = "imageblue";
+    color = 6;
+    skeleton = [0];
+    text = ["image blue"];
+    shadercode_template = ["texture(uSampler, vec2(coord.x, 1.0 - coord.y)).b"];
 }
 
 class AddBlock extends ArgBlock {
@@ -952,6 +997,20 @@ class IfElseBlock extends DoubleClampBlock {
     }
 }
 
+class RandomBlock extends ArgBlock {
+    block_name = "random";
+    color = OPERATION_COLOR
+    skeleton = [0, 1, 0, 1];
+    text = ["random number ", "0", "to", "1"];
+    shadercode_template = [
+        `nextFloat(int(coord.x * 1000.0) + int(coord.y * 1000.0) * int(frame * 60.0), float(`, `), float(`, `))`   
+    ];
+
+    eval () {
+        return math.Random();
+    }
+}
+
 var width = window.innerWidth - GL_WINDOW_WIDTH;
 var height = window.innerHeight;
 
@@ -988,7 +1047,7 @@ let library_text = new Konva.Text({
     fontFamily: 'Helvetica',
     fill: "#FFFFFF",
     align: 'center',
-    opacity: .5,
+    opacity: 0,
 });
 layer.add(library_text);
 
@@ -1081,6 +1140,7 @@ function blockObjectFromName(block_name) {
         case "print": b = new PrintBlock(); break;
         case "colorrgb": b = new ColorRGBBlock(); break;
         case "color": b = new ColorBlock(); break;
+        case "image": b = new ImageBlock(); break;
         case "checker": b = new CheckerBlock(); break;
         case "xgradient": b = new XGradientBlock(); break;
         case "ygradient": b = new YGradientBlock(); break;
@@ -1106,7 +1166,11 @@ function blockObjectFromName(block_name) {
         case "setred": b = new SetRedBlock(); break;
         case "setgreen": b = new SetGreenBlock(); break;
         case "setblue": b = new SetBlueBlock(); break;
+        case "setbrightness": b = new SetBrightnessBlock(); break;
         case "transparency": b = new TransparencyBlock(); break;
+        case "imagered": b = new ImageRedBlock(); break;
+        case "imagegreen": b = new ImageGreenBlock(); break;
+        case "imageblue": b = new ImageBlueBlock(); break;
         case "add": b = new AddBlock(); break;
         case "subtract": b = new SubtractBlock(); break;
         case "multiply": b = new MultiplyBlock(); break;
@@ -1125,6 +1189,7 @@ function blockObjectFromName(block_name) {
         case "equal": b = new EqualBlock(); break;
         case "lessthan": b = new LessThanBlock(); break;
         case "greaterthan": b = new GreaterThanBlock(); break;
+        case "random": b = new RandomBlock(); break;
 
         default: b = new Block();
     }
@@ -1600,11 +1665,8 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false, c
 
             deleteStack(dragged_stack);
 
-            // if (stack_being_run == dragged_stack) {
-            //     stack_being_run = -1
-            //     run_main_stack();
-            //     makeShader(DEFAULT_SHADER_CODE);
-            // }
+            stack_being_run = -1;
+            run_main_stack();
 
 
             // delete blocks
@@ -1649,6 +1711,9 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false, c
                 let new_stack = first_part.concat(middle_part).concat(last_part);
                 stacks[insert_stack] = new_stack;
                 stacks.splice(dragged_stack,1);
+
+                stack_being_run = -1;
+                run_main_stack();
                 updateBlocks();
                 updateShaderCode();
             }
@@ -1694,6 +1759,9 @@ function fullyCreateBlock(block_name, id, textArgs, x, y, library_block=false, c
             }
         }
         dragged_stack = -1;
+
+        stack_being_run = -1;
+        run_main_stack();
 
         updateBlocks();
         updateShaderCode();
@@ -2311,7 +2379,7 @@ function example(example_number) {
             ]
         ],
 
-        // Example 4: Shift example
+        // Example 4: Wave example
         [
             [
                 [0, "run", [], [], [400, 100]],
@@ -2347,13 +2415,66 @@ function example(example_number) {
                 [1, "checker", [-1, -1], [8, 8], [], false, [2, 4]],
             ],
             [
-                [2, "setgreen", [3], [-1]],
-                [3, "y", [], [], [], 2],
+                [2, "setbrightness", [-1], [0]],
             ],
             [
-                [4, "setred", [5], [-1]],
-                [5, "x", [], [], [], 2],
+                [4, "setbrightness", [-1], [1]],
             ],
+        ],
+
+        // Example 7: Pixelate
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "pixelate", [-1], [32]],
+                [2, "setbrightness", [3], [-1]],
+                [3, "subtract", [-1, 4], [10, -1]],
+                [4, "multiply", [-1, 5], [40, -1]],
+                [5, "mousedistance", [], []],
+            ],
+        ],
+
+        // Example 8: Double wave example
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "xwave", [-1, -1, 2], [0.2, 0.1, -1]],
+                [2, "timer", [], []],
+                [3, "setblue", [4], [-1]],
+                [4, "mod", [5, -1], [-1, 1]],
+                [5, "multiply", [6, -1], [-1, 10]],
+                [6, "y", [], []],
+                [7, "ywave", [-1, -1, 8], [0.2, 0.1, -1]],
+                [8, "timer", [], []],
+                [9, "setred", [10], [-1]],
+                [10, "mod", [11, -1], [-1, 1]],
+                [11, "multiply", [12, -1], [-1, 10]],
+                [12, "x", [], []],
+            ]
+        ],
+
+        // Example 9: TV static
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "setbrightness", [2], [-1]],
+                [2, "random", [-1, -1], [-5, 5]],
+            ]
+        ],
+
+        // Example 10: Image manipulation
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "setred", [2], [-1]],
+                [2, "imagered", [], []],
+                [3, "setgreen", [4], [-1]],
+                [4, "multiply", [5, -1], [-1, 1.5]],
+                [5, "imagegreen", [], []],
+                [6, "setblue", [7], [-1]],
+                [7, "add", [8, -1], [-1, 0.1]],
+                [8, "imageblue", [], []],
+            ]
         ],
     ];
 
@@ -2471,8 +2592,32 @@ gl_Position = vertexPosition;
 }
 `;
 
+// const vertexCode = `
+//     #version 300 es
+
+//     vec4 aVertexPosition;
+//     vec2 aTextureCoord;
+
+//     uniform mat4 uModelViewMatrix;
+//     uniform mat4 uProjectionMatrix;
+
+//     highp vec2 vTextureCoord;
+
+//     void main(void) {
+//       gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+//       vTextureCoord = aTextureCoord;
+//     }
+//   `;
+
+
 const fragmentCode = `
 #version 300 es
+
+
+highp vec2 vTextureCoord;
+
+uniform sampler2D uSampler;
+
 precision highp float;
 
 uniform float frame;
@@ -2491,11 +2636,17 @@ const fragmentCodeBeginning = `
 #version 300 es
 precision highp float;
 
+highp vec2 vTextureCoord;
+
+uniform sampler2D uSampler;
+
 uniform float frame;
 uniform float sinframe;
 uniform vec2 mouse;
 uniform vec2 canvasSize;
 out vec4 fragColor;
+
+int seedcalls;
 
 int _add(int x, int y) {return x + y;}
 float _add(float x, float y) {return x + y;}
@@ -2531,11 +2682,42 @@ float _tan(float x) {return tan(x);}
 
 bool _bool(bool x) {return x;}
 
+int MIN = -2147483648;
+int MAX = 2147483647;
+
+int xorshift(in int value) {
+    value ^= value << 1;
+    value ^= value >> 17;
+    value ^= value << 5;
+    return value;
+}
+
+float nextFloat(int seed, float a, float b) {
+    seed = xorshift(seed + seedcalls);
+    seedcalls += 1;
+    return a + abs(fract(float(seed) / 3141.592653)) * (b - a);
+}
+
+
+
 void main() {
 float r = 0.;
 float g = 0.;
 float b = 0.;
 float a = 1.;
+float w = 0.;
+
+
+seedcalls = 0;
+
+float rngSeed = 0.;
+
+float length = 0.;
+float height = 0.;
+float offset = 0.;
+
+vec4 texcolor = vec4(0,0,0,1);
+
 vec2 coord = gl_FragCoord.xy/canvasSize.xy;
 `;
 
@@ -2543,6 +2725,98 @@ const fragmentCodeEnd = `
 fragColor = vec4(r, g, b, a);
 }
 `;
+
+function initTextureBuffer(gl) {
+    const textureCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+  
+    const textureCoordinates = [
+      // Front
+      0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+      // Back
+      0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+      // Top
+      0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+      // Bottom
+      0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+      // Right
+      0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+      // Left
+      0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+    ];
+  
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array(textureCoordinates),
+      gl.STATIC_DRAW
+    );
+  
+    return textureCoordBuffer;
+}
+
+function loadTexture(gl, url) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+  
+    // Because images have to be downloaded over the internet
+    // they might take a moment until they are ready.
+    // Until then put a single pixel in the texture so we can
+    // use it immediately. When the image has finished downloading
+    // we'll update the texture with the contents of the image.
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const width = 1;
+    const height = 1;
+    const border = 0;
+    const srcFormat = gl.RGBA;
+    const srcType = gl.UNSIGNED_BYTE;
+    const pixel = new Uint8Array([0, 0, 255, 255]); // opaque blue
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      level,
+      internalFormat,
+      width,
+      height,
+      border,
+      srcFormat,
+      srcType,
+      pixel
+    );
+  
+    const image = new Image();
+    image.onload = () => {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        level,
+        internalFormat,
+        srcFormat,
+        srcType,
+        image
+      );
+  
+      // WebGL1 has different requirements for power of 2 images
+      // vs. non power of 2 images so check if the image is a
+      // power of 2 in both dimensions.
+      if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+        // Yes, it's a power of 2. Generate mips.
+        gl.generateMipmap(gl.TEXTURE_2D);
+      } else {
+        // No, it's not a power of 2. Turn off mips and set
+        // wrapping to clamp to edge
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      }
+    };
+    image.src = url;
+  
+    return texture;
+  }
+  
+  function isPowerOf2(value) {
+    return (value & (value - 1)) === 0;
+  }
 
 // fragColor = vec4(coord.x, coord.y, (sinframe / 2.) + 0.5, 1);
 
@@ -2566,6 +2840,8 @@ const vertices = [
     [1, 1],
 ];
 
+var texture = null;
+
 function makeShader (code) {
     program = gl.createProgram();
 
@@ -2582,11 +2858,15 @@ function makeShader (code) {
     gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
     const vertexPosition = gl.getAttribLocation(program, "vertexPosition");
+    console.log(vertexPosition);
     gl.enableVertexAttribArray(vertexPosition);
     gl.vertexAttribPointer(vertexPosition, 2, gl.FLOAT, false, 0, 0);
 
     const canvasSizeUniform = gl.getUniformLocation(program, 'canvasSize');
     gl.uniform2f(canvasSizeUniform, canvas.width, canvas.height);
+
+    texture = loadTexture(gl, "tree.jpg");
+    const textureCoordBuffer = initTextureBuffer(gl);
 
 }
 
@@ -2609,7 +2889,19 @@ let everyFrame = function() {
     gl.uniform1f(sinFrameUniform, Math.sin(frame/50));
 
     const mouseUniform = gl.getUniformLocation(program, 'mouse');
-    gl.uniform2f(mouseUniform, (mouseX - window.innerWidth + GL_WINDOW_WIDTH) / GL_WINDOW_WIDTH, 1 - ((mouseY - 100) / GL_WINDOW_WIDTH));
+    gl.uniform2f(mouseUniform, (mouseX - window.innerWidth + GL_WINDOW_WIDTH) / GL_WINDOW_WIDTH, 1 - ((mouseY - 40) / GL_WINDOW_WIDTH));
+
+    // Tell WebGL we want to affect texture unit 0
+    gl.activeTexture(gl.TEXTURE0);
+
+    // Bind the texture to texture unit 0
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // Tell the shader we bound the texture to texture unit 0
+    const uSampler = gl.getUniformLocation(program, "uSampler");
+    gl.uniform1i(uSampler, 0);
+
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertices.length);
 
