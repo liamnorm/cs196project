@@ -107,7 +107,7 @@ var stacks = [
 ]
 
 //const BLOCK_LIBRARY = ["print", "color", "colorvalue", "red", "green", "blue", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "sine", "cosine", "tangent", "and", "or", "not", "x", "y", "timer", "true", "false"];
-const BLOCK_LIBRARY = ["run", "setred", "setgreen", "setblue", "setbrightness", "x", "y", "centerdistance", "timer", "mousex", "mousey", "mousedistance", "colorrgb", "color", "image", "xgradient", "ygradient", "checker", "shift", "xwave", "ywave", "pixelate", "imagered", "imagegreen", "imageblue", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "if", "ifelse", "and", "or", "not", "sine", "cosine", "tangent", "random", "print"];
+const BLOCK_LIBRARY = ["run", "setred", "setgreen", "setblue", "setbrightness", "x", "y", "centerdistance", "timer", "mousex", "mousey", "mousedistance", "colorrgb", "color", "image", "xgradient", "ygradient", "checker", "shift", "xwave", "ywave", "pixelate", "imagered", "imagegreen", "imageblue", "imagebrightness", "add", "subtract", "multiply", "divide", "mod", "equal", "lessthan", "greaterthan", "if", "ifelse", "and", "or", "not", "sine", "cosine", "tangent", "random", "print"];
 
 
 class Block {
@@ -774,6 +774,14 @@ class ImageBlueBlock extends ArgBlock {
     shadercode_template = ["texture(uSampler, vec2(coord.x, 1.0 - coord.y)).b"];
 }
 
+class ImageBrightnessBlock extends ArgBlock {
+    block_name = "imagebrightness";
+    color = COLORING_COLOR;
+    skeleton = [0];
+    text = ["image brightness"];
+    shadercode_template = ["(texture(uSampler, vec2(coord.x, 1.0 - coord.y)).r + texture(uSampler, vec2(coord.x, 1.0 - coord.y)).g + texture(uSampler, vec2(coord.x, 1.0 - coord.y)).b) / 3.0"];
+}
+
 class AddBlock extends ArgBlock {
     block_name = "add";
     color = OPERATION_COLOR
@@ -1173,6 +1181,7 @@ function blockObjectFromName(block_name) {
         case "imagered": b = new ImageRedBlock(); break;
         case "imagegreen": b = new ImageGreenBlock(); break;
         case "imageblue": b = new ImageBlueBlock(); break;
+        case "imagebrightness": b = new ImageBrightnessBlock(); break;
         case "add": b = new AddBlock(); break;
         case "subtract": b = new SubtractBlock(); break;
         case "multiply": b = new MultiplyBlock(); break;
@@ -2327,6 +2336,8 @@ function reset() {
     hovered_contact = -1;
 
     library_scroll = 0;
+
+    frame = 0;
 }
 
 function resetButton() {
@@ -2349,15 +2360,6 @@ function uploadImage() {
     console.log(button);
 
     button.click();
-
-    reset();
-
-    stacks = [[[0, "run", [-1, -1, -1, -1], [-1, -1, -1, -1], [400, 100]]]];
-
-    fullyCreateBlocks();
-    run_main_stack();
-    updateBlocks();
-    updateShaderCode();
 
 };
 
@@ -2507,6 +2509,89 @@ function example(example_number) {
                 [7, "add", [8, -1], [-1, 0.1]],
                 [8, "imageblue", [], []],
             ]
+        ],
+
+        // Example 11: Image red vs. blue
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "setbrightness", [2], [-1]],
+                [2, "imagered", [], []],
+                [3, "if", [4], [-1], [], false, [7]],
+                [4, "lessthan", [5, 6], [-1, -1]],
+                [5, "x", [], []],
+                [6, "mousex", [], []],
+            ],
+            [
+                [7, "setbrightness", [8], [-1]],
+                [8, "imageblue", [], []]
+            ]
+        ],
+
+        // Example 12: Mouse distance shift corruption
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "shift", [2, -1], [-1, 0]],
+                [2, "mod", [3, 4], [-1, -1]],
+                [3, "imagered", [], []],
+                [4, "multiply", [5, -1], [-1, 0.1]],
+                [5, "mousedistance", [], []],
+                [6, "image", [], []],
+            ],
+        ],
+
+        // Example 13: Posterize
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "ifelse", [2], [-1, 0], [], false, [4, 5]],
+                [2, "lessthan", [3, 6], [-1, -1]],
+                [3, "imagebrightness", [], []],
+                [6, "mousex", [], []],
+            ],
+            [
+                [4, "color", [-1], ["#000000"]]
+            ],
+            [
+                [5, "color", [-1], ["#ffffff"]]
+            ],
+        ],
+
+        // Example 14: Trippy
+        [
+            [
+                [0, "run", [], [], [400, 100]],
+                [1, "setred", [2], [-1, 0]],
+                [2, "multiply", [-1, 3], [2, -1]],
+                [3, "multiply", [4, 5], [-1, -1]],
+                [4, "imagered", [], []],
+                [5, "sine", [6], [-1]],
+                [6, "multiply", [7, 9], [-1, -1]],
+                [7, "multiply", [8, -1], [-1, 10]],
+                [8, "timer", [], []],
+                [9, "imagered", [], []],
+
+                [10, "setgreen", [11], [-1, 0]],
+                [11, "multiply", [-1, 12], [2, -1]],
+                [12, "multiply", [13, 14], [-1, -1]],
+                [13, "imagegreen", [], []],
+                [14, "cosine", [15], [-1]],
+                [15, "multiply", [16, 18], [-1, -1]],
+                [16, "multiply", [17, -1], [-1, 10]],
+                [17, "timer", [], []],
+                [18, "imagegreen", [], []],
+
+                [19, "setblue", [20], [-1, 0]],
+                [20, "multiply", [-1, 21], [2, -1]],
+                [21, "multiply", [22, 23], [-1, -1]],
+                [22, "imageblue", [], []],
+                [23, "cosine", [24], [-1]],
+                [24, "multiply", [25, 27], [-1, -1]],
+                [25, "multiply", [26, -1], [-1, 10]],
+                [26, "timer", [], []],
+                [27, "imageblue", [], []],
+            ],
         ],
     ];
 
@@ -2922,7 +3007,7 @@ function makeShader (code, imageURL) {
 
 makeShader(shader_code, imageURL);
 
-let frame = 0;
+var frame = 0;
 
 ctx.font = "15px Helvetica";
 ctx.fillStyle = "white";
